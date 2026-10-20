@@ -1,0 +1,13 @@
+title=tvlibre
+major_version=1
+minor_version=0
+build_version=1
+mm_icon_focus_hd=pkg:/images/icon_hd.png
+mm_icon_focus_sd=pkg:/images/icon_sd.png
+splash_screen_fhd=pkg:/images/splash_fhd.png
+splash_screen_hd=pkg:/images/splash_hd.png
+splash_color=#0E0E10
+splash_min_time=500
+ui_resolutions=fhd
+# build.py reemplaza esta línea por la dirección real del servidor
+tvlibre_server=http://192.168.1.10:8099

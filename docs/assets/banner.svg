@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400" role="img" aria-labelledby="t d">
+  <title id="t">tvlibre</title>
+  <desc id="d">tvlibre: Kick and Twitch on old Smart TVs and Roku, served from your home network.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e0e10"/>
+      <stop offset="1" stop-color="#1c1430"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.86" cy="0.5" r="0.45">
+      <stop offset="0" stop-color="#e91916" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#e91916" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect width="1280" height="400" fill="url(#glow)"/>
+  <!-- una TV con el botón de play -->
+  <g transform="translate(900 95)">
+    <rect x="0" y="0" width="300" height="180" rx="16" fill="#16161a" stroke="#3a3a44" stroke-width="4"/>
+    <path d="M128 58 L128 122 L184 90 Z" fill="#e91916"/>
+    <rect x="16" y="150" width="120" height="8" rx="4" fill="#e91916"/>
+    <rect x="136" y="150" width="148" height="8" rx="4" fill="#3a3a44"/>
+    <path d="M110 200 H190" stroke="#3a3a44" stroke-width="8" stroke-linecap="round"/>
+    <rect x="-36" y="40" width="22" height="22" rx="5" fill="#53fc18"/>
+    <rect x="-36" y="76" width="22" height="22" rx="5" fill="#9146ff"/>
+  </g>
+  <text x="96" y="190" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="104" font-weight="800" fill="#ffffff" letter-spacing="-3">tvlibre</text>
+  <text x="100" y="250" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="32" fill="#e6e6ee">Kick and Twitch on the TV that no longer gets apps.</text>
+  <text x="100" y="300" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#8f8fa3">Old Smart TV browsers and Roku, powered by a tiny server on your home network.</text>
+</svg>

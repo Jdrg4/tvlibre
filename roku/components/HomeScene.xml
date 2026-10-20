@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="HomeScene" extends="Scene">
+  <script type="text/brightscript" uri="format.brs"/>
+  <script type="text/brightscript" uri="HomeScene.brs"/>
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0E0E10FF"/>
+    <Group id="home">
+      <Label text="tvlibre" translation="[80,40]" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
+      <Label id="bri" translation="[1000,48]" width="420" horizAlign="right" font="font:SmallSystemFont" color="0xBBBBBBFF"/>
+      <Label id="clock" translation="[1440,48]" width="400" horizAlign="right" font="font:MediumSystemFont" color="0xFFFFFFFF"/>
+      <Label id="msg" translation="[80,115]" width="1760" font="font:SmallestSystemFont" color="0xFF8080FF"/>
+      <RowList id="rows" translation="[80,160]" itemComponentName="Card" numRows="2"
+        itemSize="[1840,420]" rowItemSpacing="[[30,0]]"
+        showRowLabel="[true]" rowLabelOffset="[[0,14]]" rowLabelColor="0xFFFFFFFF" rowLabelFont="font:MediumBoldSystemFont"
+        rowFocusAnimationStyle="floatingFocus" vertFocusAnimationStyle="floatingFocus"/>
+    </Group>
+    <Video id="video" width="1920" height="1080" visible="false" enableUI="false" enableTrickPlay="false"/>
+    <Label id="loading" text="Cargando…" width="1920" height="1080" horizAlign="center" vertAlign="center"
+      font="font:MediumBoldSystemFont" color="0xFFFFFFFF" visible="false"/>
+    <Group id="bar" visible="false">
+      <Rectangle translation="[0,860]" width="1920" height="220" color="0x000000C0"/>
+      <Label id="pTitle" translation="[80,890]" width="1760" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
+      <Rectangle translation="[80,970]" width="1760" height="8" color="0x555555FF"/>
+      <Rectangle id="pFill" translation="[80,970]" width="0" height="8" color="0xE91916FF"/>
+      <Label id="pTime" translation="[80,995]" width="1760" font="font:SmallSystemFont" color="0xDDDDDDFF"/>
+    </Group>
+    <Label id="perr" width="1920" height="1080" horizAlign="center" vertAlign="center" wrap="true"
+      font="font:MediumSystemFont" color="0xFFFFFFFF" visible="false"/>
+    <Label id="toast" translation="[0,80]" width="1920" horizAlign="center" font="font:MediumBoldSystemFont"
+      color="0xFFFFFFFF" visible="false"/>
+    <!-- brillo propio: un velo negro encima de todo, como en la TV -->
+    <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
+    <Timer id="refresh" duration="60" repeat="true"/>
+    <Timer id="retry" duration="10"/>
+    <Timer id="clockTimer" duration="30" repeat="true"/>
+    <Timer id="resumeTimer" duration="15" repeat="true"/>
+    <Timer id="toastTimer" duration="2"/>
+    <Timer id="barTimer" duration="4"/>
+    <Timer id="seekTimer" duration="0.4"/>
+    <Timer id="holdTimer" duration="0.15" repeat="true"/>
+  </children>
+</component>

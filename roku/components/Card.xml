@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tarjeta de la portada: grande para el directo, con miniatura y texto debajo para un anterior. -->
+<component name="Card" extends="Group">
+  <interface>
+    <field id="itemContent" type="node" onChange="show"/>
+    <field id="width" type="float"/>
+    <field id="height" type="float"/>
+  </interface>
+  <script type="text/brightscript" uri="format.brs"/>
+  <script type="text/brightscript" uri="Card.brs"/>
+  <children>
+    <Rectangle id="ph" color="0x26262CFF"/>
+    <Poster id="thumb" loadDisplayMode="scaleToZoom"/>
+    <Rectangle id="shade" color="0x000000B0"/>
+    <Rectangle id="badge" width="170" height="40" translation="[16,16]" color="0xE91916FF">
+      <Label text="EN VIVO" width="170" height="40" horizAlign="center" vertAlign="center" font="font:SmallestBoldSystemFont" color="0xFFFFFFFF"/>
+    </Rectangle>
+    <Rectangle id="durBg" width="130" height="36" color="0x000000CC">
+      <Label id="dur" width="130" height="36" horizAlign="center" vertAlign="center" font="font:SmallestSystemFont" color="0xFFFFFFFF"/>
+    </Rectangle>
+    <Rectangle id="prog" height="6" color="0xE91916FF"/>
+    <Rectangle id="plat" width="120" height="30">
+      <Label id="platName" width="120" height="30" horizAlign="center" vertAlign="center" font="font:SmallestBoldSystemFont" color="0x000000FF"/>
+    </Rectangle>
+    <Label id="l1" font="font:SmallBoldSystemFont" color="0xFFFFFFFF"/>
+    <Label id="l2" font="font:SmallSystemFont" color="0xFFFFFFFF" wrap="true" maxLines="2"/>
+    <Label id="l3" font="font:SmallestSystemFont" color="0xBBBBBBFF"/>
+  </children>
+</component>

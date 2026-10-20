@@ -26,6 +26,7 @@ En la TV: `/` es la app y `/diagnostico` muestra capacidades, teclas y pruebas d
 | `tvlibre/state.py` | Brillo y puntos de retomar en un JSON, con escritura atómica |
 | `tvlibre/server.py` | HTTP (`ThreadingHTTPServer`), rutas y filtro de solo red local |
 | `tvlibre/web/` | Front en ES5: `index.html`, `app.js`, `app.css` y `diagnostico.html` |
+| `roku/` | Canal de Roku (BrightScript + SceneGraph) sobre la misma API; `roku/build.py <url>` arma el zip |
 
 Un item (directo o anterior) es un dict con `id` (`<plataforma>-<live|vod>-<ref>`, con caracteres
 `[a-z0-9_-]`), `platform`, `kind`, `channel`, `title`, `started_at` (ISO UTC), `duration_s`,
@@ -50,6 +51,17 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
   final.
 - La miniatura del directo de Kick en `stream.kick.com/thumbnails/livestream` responde 403. Se usa la
   del video en curso.
+
+## Lo medido en un Roku real (Express 4K+, Roku OS 15.3)
+
+- **Con "Control por aplicaciones móviles → Acceso a la red" en *Limitado*, el instalador (puerto 80) y la
+  consola (8085) rechazan la conexión** aunque el modo desarrollador esté activo. En *Permisivo* y tras
+  reiniciar, funcionan.
+- Los canales beta exigen un `.pkg` firmado, que solo genera el instalador del propio Roku: no sirven sin él.
+- Errores de compilación y de ejecución: `telnet <ip-del-roku> 8085`. Ojo con nombres de variable que son
+  funciones de BrightScript (`pos`, `len`, `str`, `val`, `mid`, `tab`…): no compilan.
+  `tests/test_roku.py` vigila los más comunes.
+- La IP del servidor no va en el repo: `build.py` la escribe en el `manifest` del zip.
 
 ## Reglas
 

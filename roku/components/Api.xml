@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Una petición HTTP a tvlibre. roUrlTransfer no se puede usar en el hilo de la interfaz. -->
+<component name="Api" extends="Task">
+  <interface>
+    <field id="url" type="string"/>
+    <field id="method" type="string" value="GET"/>
+    <field id="body" type="assocarray"/>
+    <field id="result" type="assocarray"/>
+  </interface>
+  <script type="text/brightscript" uri="Api.brs"/>
+</component>
