@@ -29,7 +29,7 @@ class RokuPackageTest(unittest.TestCase):
                 self.assertTrue(os.path.exists(path), '%s pide %s' % (name, s.get('uri')))
 
     def test_referenced_components_exist(self):
-        names = {r.get('name') for r in components().values()} | {'ContentNode'}
+        names = {r.get('name') for r in components().values()} | {'ContentNode', 'StandardKeyboardDialog'}  # nodos del Roku
         used = set()
         for root in components().values():
             used |= {e.get('itemComponentName') for e in root.iter() if e.get('itemComponentName')}

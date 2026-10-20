@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -16,6 +16,7 @@ sub init()
     m.rows.observeField("rowItemSelected", "onSelect")
     m.video.observeField("state", "onVideoState")
     m.video.observeField("position", "onPosition")
+    m.panel.observeField("closed", "onPanelClosed")
     m.muted = []
     m.refresh.observeField("fire", "onRefresh")
     m.retry.observeField("fire", "onRetry")
@@ -100,7 +101,7 @@ sub render()
     root = CreateObject("roSGNode", "ContentNode")
     sizes = []
     heights = []
-    for each sec in [{items: d.live, name: "En vivo ahora", size: [640, 360], h: 450}, {items: d.vods, name: "Anteriores", size: [400, 340], h: 400}]
+    for each sec in [{items: d.live, name: "En vivo ahora", size: [640, 360], h: 450}, {items: d.vods, name: "Anteriores", size: [400, 340], h: 400}, {items: d.discover, name: "También en vivo", size: [480, 270], h: 360}]
         if sec.items <> invalid and sec.items.count() > 0 then
             row = root.createChild("ContentNode")
             row.title = sec.name
@@ -458,10 +459,31 @@ function playerKey(key as string, press as boolean) as boolean
     return true
 end function
 
+' ---------- panel de canales ----------
+sub openPanel()
+    m.onBri = false
+    setBrightness(m.brightness, false)
+    chans = m.data.channels
+    if chans = invalid then chans = []
+    m.panel.visible = true
+    m.panel.channels = chans
+end sub
+
+sub onPanelClosed()
+    m.panel.visible = false
+    m.rows.setFocus(true)
+    if m.panel.changed then loadHome(focusedId())
+end sub
+
 ' ---------- teclado ----------
 function onKeyEvent(key as string, press as boolean) as boolean
+    if m.panel.visible then return true  ' el panel maneja sus teclas; las que suben no tocan la portada
     if m.item <> invalid then return playerKey(key, press)
     if not press then return false
+    if key = "options" and m.data <> invalid then
+        openPanel()
+        return true
+    end if
     ' portada: Arriba desde la primera fila sube al brillo, como el sol de la TV
     if m.onBri then
         if key = "left" or key = "right" then

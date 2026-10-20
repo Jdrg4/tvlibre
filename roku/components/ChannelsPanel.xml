@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Panel "Canales": buscar en Kick y Twitch, seguir y dejar de seguir. Se abre con * en la portada. -->
+<component name="ChannelsPanel" extends="Group">
+  <interface>
+    <field id="channels" type="array" onChange="open"/>
+    <field id="changed" type="boolean"/>
+    <field id="closed" type="boolean" alwaysNotify="true"/>
+  </interface>
+  <script type="text/brightscript" uri="format.brs"/>
+  <script type="text/brightscript" uri="ChannelsPanel.brs"/>
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0E0E10F4"/>
+    <Label text="Canales" translation="[240,70]" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
+    <Label id="sub" translation="[240,160]" width="1440" font="font:SmallSystemFont" color="0x999999FF"/>
+    <LabelList id="list" translation="[240,220]" itemSize="[1440,72]" numRows="10" vertFocusAnimationStyle="floatingFocus"
+      font="font:MediumSystemFont" focusedFont="font:MediumBoldSystemFont"/>
+    <Label id="msg" translation="[240,960]" width="1440" font="font:SmallSystemFont" color="0xFF8080FF"/>
+    <Label text="OK: buscar o seguir / dejar de seguir   ·   Atrás: volver" translation="[240,1010]" width="1440"
+      font="font:SmallestSystemFont" color="0x777777FF"/>
+  </children>
+</component>

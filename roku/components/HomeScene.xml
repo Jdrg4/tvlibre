@@ -6,6 +6,7 @@
     <Rectangle width="1920" height="1080" color="0x0E0E10FF"/>
     <Group id="home">
       <Label text="tvlibre" translation="[80,40]" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
+      <Label text="*  Canales" translation="[600,48]" width="380" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
       <Label id="bri" translation="[1000,48]" width="420" horizAlign="right" font="font:SmallSystemFont" color="0xBBBBBBFF"/>
       <Label id="clock" translation="[1440,48]" width="400" horizAlign="right" font="font:MediumSystemFont" color="0xFFFFFFFF"/>
       <Label id="msg" translation="[80,115]" width="1760" font="font:SmallestSystemFont" color="0xFF8080FF"/>
@@ -28,6 +29,7 @@
       font="font:MediumSystemFont" color="0xFFFFFFFF" visible="false"/>
     <Label id="toast" translation="[0,80]" width="1920" horizAlign="center" font="font:MediumBoldSystemFont"
       color="0xFFFFFFFF" visible="false"/>
+    <ChannelsPanel id="panel" visible="false"/>
     <!-- brillo propio: un velo negro encima de todo, como en la TV -->
     <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
     <!-- recibe las teclas del reproductor y del brillo: sin él la fila oculta se queda con el foco y OK abre otra tarjeta -->
