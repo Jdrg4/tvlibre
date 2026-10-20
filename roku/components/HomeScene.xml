@@ -16,6 +16,11 @@
         rowFocusAnimationStyle="floatingFocus" vertFocusAnimationStyle="floatingFocus"/>
     </Group>
     <Video id="video" width="1920" height="1080" visible="false" enableUI="false" enableTrickPlay="false"/>
+    <Group id="chat" translation="[1340,0]" visible="false">
+      <Rectangle width="580" height="860" color="0x000000A8"/>
+      <Label id="chatText" translation="[24,30]" width="532" height="800" wrap="true" vertAlign="bottom"
+        font="font:SmallestSystemFont" color="0xEEEEEEFF"/>
+    </Group>
     <Label id="loading" text="Cargando…" width="1920" height="1080" horizAlign="center" vertAlign="center"
       font="font:MediumBoldSystemFont" color="0xFFFFFFFF" visible="false"/>
     <Group id="bar" visible="false">
@@ -42,5 +47,6 @@
     <Timer id="barTimer" duration="4"/>
     <Timer id="seekTimer" duration="0.4"/>
     <Timer id="holdTimer" duration="0.15" repeat="true"/>
+    <Timer id="chatTimer" duration="1" repeat="true"/>
   </children>
 </component>

@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatText", "chatTimer"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -17,6 +17,9 @@ sub init()
     m.video.observeField("state", "onVideoState")
     m.video.observeField("position", "onPosition")
     m.panel.observeField("closed", "onPanelClosed")
+    m.chatTimer.observeField("fire", "chatTick")
+    m.chatOn = m.reg.Read("chat") <> "0"
+    m.chatGen = 0
     m.muted = []
     m.refresh.observeField("fire", "onRefresh")
     m.retry.observeField("fire", "onRetry")
@@ -209,6 +212,9 @@ sub openPlayer(it as object)
     m.keys.setFocus(true)
     start_(resumeOf(it))
     m.resumeTimer.control = "start"
+    chatReset()
+    m.chat.visible = m.chatOn
+    m.chatTimer.control = "start"
     showBar()
 end sub
 
@@ -265,6 +271,8 @@ sub closePlayer()
     m.item = invalid
     m.holdTimer.control = "stop"
     m.seekTimer.control = "stop"
+    m.chatTimer.control = "stop"
+    m.chat.visible = false
     m.video.control = "stop"
     m.video.content = invalid
     m.video.visible = false
@@ -455,12 +463,112 @@ function playerKey(key as string, press as boolean) as boolean
         if key = "up" then setBrightness(m.brightness + 10, true) else setBrightness(m.brightness - 10, true)
         showToast("Brillo " + m.brightness.ToStr() + "%")
     else if key = "options" then
+        toggleChat()
+    else if key = "replay" then
         toggleQuality()
     else
         showBar()
     end if
     return true
 end function
+
+' ---------- chat de solo lectura (misma lógica que TVL.chat* del front de la TV) ----------
+sub chatReset()
+    m.cs = {shown: [], buf: [], ids: {}, until: -1, last: -1}
+    m.chatGen = m.chatGen + 1
+    m.chatBusy = false
+    m.chatN = 0
+    m.chatText.text = ""
+end sub
+
+sub chatKeep()
+    while m.cs.shown.count() > 40
+        m.cs.shown.shift()
+    end while
+end sub
+
+sub drawChat()
+    s = m.cs.shown
+    txt = ""
+    first = s.count() - 9
+    if first < 0 then first = 0
+    for i = first to s.count() - 1
+        line = cleanText(s[i].user + ": " + s[i].text)
+        if Len(line) > 90 then line = Left(line, 88) + "…"
+        if txt <> "" then txt = txt + Chr(10)
+        txt = txt + line
+    end for
+    m.chatText.text = txt
+end sub
+
+function chatDue(spot as float) as integer
+    n = 0
+    rest = []
+    for each msg in m.cs.buf
+        if msg.at <= spot then
+            m.cs.shown.push(msg)
+            n = n + 1
+        else
+            rest.push(msg)
+        end if
+    end for
+    m.cs.buf = rest
+    m.cs.last = spot
+    chatKeep()
+    return n
+end function
+
+sub chatTick()
+    if m.item = invalid or not m.chatOn or m.chatBusy then return
+    from = 0
+    if m.item.kind = "live" then
+        m.chatN = m.chatN + 1
+        if m.chatN mod 3 <> 0 then return  ' en vivo, cada 3 s
+    else
+        if not m.started then return
+        spot = curTime()
+        ' un salto deja el chat de otra hora: se reinicia
+        if (m.cs.last >= 0 and spot < m.cs.last - 3) or (m.cs.until >= 0 and spot > m.cs.until + 40) then chatReset()
+        if chatDue(spot) > 0 then drawChat()
+        if m.cs.until >= 0 and spot + 8 < m.cs.until then return
+        if m.cs.until >= 0 then from = m.cs.until else from = Int(spot)
+    end if
+    m.chatBusy = true
+    t = api("/api/chat/" + m.item.id + "?t=" + Int(from).ToStr(), invalid, "onChat")
+    m.chatAsk = {gen: m.chatGen, id: m.item.id}
+end sub
+
+sub onChat(ev as object)
+    r = ev.getData()
+    if m.item = invalid or m.chatAsk = invalid then return
+    if m.chatAsk.gen <> m.chatGen or m.chatAsk.id <> m.item.id then return  ' respuesta vieja
+    m.chatBusy = false
+    if r.error <> invalid or r.data = invalid or r.data.messages = invalid then return  ' el chat nunca molesta al video
+    added = 0
+    for each msg in r.data.messages
+        if m.cs.ids[msg.id] = invalid then
+            m.cs.ids[msg.id] = true
+            if m.item.kind = "live" then
+                m.cs.shown.push(msg)
+                added = added + 1
+            else
+                m.cs.buf.push(msg)
+            end if
+        end if
+    end for
+    if m.item.kind <> "live" and r.data.until <> invalid and r.data.until > m.cs.until then m.cs.until = r.data.until
+    chatKeep()
+    if added > 0 then drawChat()
+end sub
+
+sub toggleChat()
+    m.chatOn = not m.chatOn
+    if m.chatOn then m.reg.Write("chat", "1") else m.reg.Write("chat", "0")
+    m.reg.Flush()
+    chatReset()
+    m.chat.visible = m.chatOn
+    if m.chatOn then showToast("Chat visible") else showToast("Chat oculto")
+end sub
 
 ' ---------- panel de canales ----------
 sub openPanel()
