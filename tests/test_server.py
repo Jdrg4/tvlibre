@@ -27,6 +27,14 @@ class FakeCatalog:
     def item(self, item_id):
         return ITEMS[item_id]
 
+    followed = []
+
+    def search(self, q):
+        return {'results': [{'platform': 'kick', 'slug': 'x', 'q': q}], 'errors': []}
+
+    def follow(self, platform, slug, on):
+        self.followed.append((platform, slug, on))
+
     @staticmethod
     def route(item):
         return 'direct' if item['platform'] == 'kick' and item['kind'] == 'live' else 'proxy'
@@ -149,6 +157,30 @@ class ServerTest(unittest.TestCase):
         self.assertEqual((code, json.loads(body)), (200, {'ranges': [[10, 20]]}))
         self.assertEqual(json.loads(self.get('/api/muted/kick-live-ejemplo_kick')[2]), {'ranges': []})
         self.assertEqual(self.get('/api/muted/twitch-vod-9999')[0], 404)
+
+    def test_search_ok(self):
+        code, _, body = self.get('/api/search?q=' + urllib.parse.quote('año & co'))
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)['results'][0]['q'], 'año & co')
+
+    def test_search_q_invalido_400(self):
+        self.assertEqual(self.get('/api/search?q=')[0], 400)
+        self.assertEqual(self.get('/api/search?q=%20%20')[0], 400)
+        self.assertEqual(self.get('/api/search?q=' + 'a' * 41)[0], 400)
+
+    def test_channels_ok_204(self):
+        self.assertEqual(self.post('/api/channels', {'platform': 'twitch', 'slug': 'Nuevo_1', 'follow': True}), 204)
+        self.assertIn(('twitch', 'nuevo_1', True), FakeCatalog.followed)
+
+    def test_channels_invalido_400(self):
+        for bad in ({'platform': 'youtube', 'slug': 'a', 'follow': True},
+                    {'platform': 'kick', 'slug': '../x', 'follow': True},
+                    {'platform': 'kick', 'slug': 'a' * 41, 'follow': True},
+                    {'platform': 'kick', 'slug': 'a', 'follow': 'si'},
+                    {'platform': 'kick', 'slug': 7, 'follow': True}):
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                self.post('/api/channels', bad)
+            self.assertEqual(cm.exception.code, 400, bad)
 
     def test_h_desconocida_404(self):
         self.assertEqual(self.get('/h/0123456789abcdef.ts')[0], 404)

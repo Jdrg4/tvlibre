@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 from tvlibre import hls, net
 from tvlibre.catalog import Catalog
+from tvlibre.config import PLATFORMS
 from tvlibre.providers import kick, twitch
 from tvlibre.proxy import Proxy
 from tvlibre.state import State
@@ -19,6 +20,7 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 LAN = [ipaddress.ip_network(n) for n in
        ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', '100.64.0.0/10', '::1/128')]
 ITEM_RE = re.compile(r'^[a-z0-9_-]+$')
+SLUG_RE = re.compile(r'^[a-z0-9_-]{1,40}$')
 STATIC_RE = re.compile(r'^[A-Za-z0-9_-]+\.(html|js|css|png|svg|ico)$')
 IMG_HOSTS = ('jtvnw.net', 'kick.com', 'live-video.net')
 DIAG_MAX = 5 * 1024 * 1024
@@ -116,6 +118,11 @@ def make_handler(app):
                     return self.file(name)
                 if path == '/api/home':
                     return self.send(200, json.dumps(app['catalog'].home()).encode(), 'application/json')
+                if path == '/api/search':
+                    q = (qs.get('q') or [''])[0].strip()
+                    if not 0 < len(q) <= 40:
+                        return self.send(400, b'busqueda de 1 a 40 caracteres')
+                    return self.send(200, json.dumps(app['catalog'].search(q)).encode(), 'application/json')
                 m = re.match(r'^/api/muted/(.+)$', path)
                 if m:
                     return self.muted(m.group(1))
@@ -192,6 +199,12 @@ def make_handler(app):
                         if not full:
                             with open(app['diag_path'], 'a', encoding='utf-8') as f:
                                 f.write(line[:20000] + '\n')
+                elif self.path == '/api/channels':
+                    platform, slug, on = data['platform'], str(data['slug']).lower(), data['follow']
+                    if not isinstance(data['slug'], str) or platform not in PLATFORMS \
+                            or not SLUG_RE.fullmatch(slug) or not isinstance(on, bool):
+                        return self.send(400, b'canal invalido')
+                    app['catalog'].follow(platform, slug, on)
                 elif self.path == '/api/resume':
                     if not ITEM_RE.match(str(data.get('id', ''))):
                         return self.send(400, b'id invalido')
