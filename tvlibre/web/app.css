@@ -111,3 +111,7 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 #chatList { position: absolute; left: 0; right: 0; bottom: 150px; padding: 0 16px; }
 .cl { font-size: 18px; line-height: 24px; color: #eee; margin-top: 6px; word-wrap: break-word; }
 .cl b { font-weight: bold; }
+.cl .em { height: 26px; vertical-align: middle; margin: 0 2px; }
+/* con el chat visible el video se corre a la izquierda (16:9 en 900 px) y el chat va en su panel, como el modo cine */
+#player.conchat #v { width: 900px; height: 506px; margin-top: 107px; }
+#player.conchat #chat { background: #18181b; border-left: 2px solid #2f2f35; }

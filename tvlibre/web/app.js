@@ -262,12 +262,22 @@
   var COLOR_RE = /^#[0-9a-fA-F]{6}$/;
   var chatOn = store('tvl_chat') !== '0';
 
+  // texto escapado y emotes/emojis como imágenes (la TV no trae fuente de emojis)
+  function chatBody(m) {
+    if (!m.parts) { return esc(m.text); }
+    var h = '', i, p;
+    for (i = 0; i < m.parts.length; i++) {
+      p = m.parts[i];
+      h += p.e ? '<img class="em" src="/img?u=' + encodeURIComponent(p.e) + '">' : esc(p.t);
+    }
+    return h;
+  }
   function drawChat() {
     var h = '', s = player.chat.shown, i, m;
     for (i = Math.max(0, s.length - 18); i < s.length; i++) {
       m = s[i];
       h += '<div class="cl"><b style="color:' + (COLOR_RE.test(m.color || '') ? m.color : '#9aa0ff') + '">' +
-        esc(m.user) + '</b> ' + esc(m.text) + '</div>';
+        esc(m.user) + '</b> ' + chatBody(m) + '</div>';
     }
     $('chatList').innerHTML = h;
   }
@@ -300,6 +310,7 @@
     chatOn = !chatOn;
     store('tvl_chat', chatOn ? '1' : '0');
     $('chat').style.display = chatOn ? 'block' : 'none';
+    $('player').className = chatOn ? 'conchat' : '';
     player.chat = TVL.chatReset();
     drawChat();
     showBar();
@@ -309,6 +320,7 @@
     player = {item: it, target: null, seekTimer: null, barTimer: null, lastKey: 0, lastCode: 0, repeat: 0, started: false,
       muted: [], chat: TVL.chatReset(), chatN: 0, chatBusy: false};
     $('chat').style.display = chatOn ? 'block' : 'none';
+    $('player').className = chatOn ? 'conchat' : '';
     $('chatList').innerHTML = '';
     player.chatTimer = setInterval(chatTick, 1000);
     if (it.platform === 'twitch' && it.kind === 'vod') {
