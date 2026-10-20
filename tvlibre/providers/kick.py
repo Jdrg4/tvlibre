@@ -1,4 +1,6 @@
 """Kick vía su API v2 pública (no oficial: puede cambiar sin aviso)."""
+import re
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from tvlibre import net
@@ -98,3 +100,44 @@ def discover(slugs, exclude, n):
                 seen.add(it['id'])
                 out.append(it)
     return out
+
+
+# ---------- chat (solo lectura) ----------
+EMOTE_RE = re.compile(r'\[emote:\d+:([^\]]+)\]')
+CHAT_WINDOW = 5  # medido: con start_time, Kick devuelve los mensajes de 5 s
+_ids = {}  # slug → id de canal (no cambia)
+
+
+def _secs(iso):
+    return datetime.strptime(iso[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc).timestamp()
+
+
+def parse_messages(js, started_at=None, since=None):
+    out = []
+    for m in (js.get('data') or {}).get('messages') or []:
+        if m.get('type') not in (None, 'message', 'reply'):
+            continue
+        at = None
+        if started_at:
+            at = int(_secs(m['created_at']) - _secs(started_at))
+            if since is not None and at < since:
+                continue
+        sender = m.get('sender') or {}
+        out.append({'id': str(m['id']), 'user': sender.get('username') or '?',
+                    'color': (sender.get('identity') or {}).get('color'),
+                    'text': EMOTE_RE.sub(r':\1:', m.get('content') or ''), 'at': at})
+    out.sort(key=lambda x: x['at'] if x['at'] is not None else 0)
+    return out if started_at else out[::-1]  # en vivo Kick da el más nuevo primero
+
+
+def chat(item, t):
+    slug = item['channel']
+    if slug not in _ids:
+        _ids[slug] = net.fetch_json(API + slug, headers=HEADERS)['id']
+    url = 'https://kick.com/api/v2/channels/%d/messages' % _ids[slug]
+    if item['kind'] == 'live':
+        return {'messages': parse_messages(net.fetch_json(url, headers=HEADERS)), 'until': None}
+    t = int(t)
+    when = datetime.fromtimestamp(_secs(item['started_at']) + t, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+    js = net.fetch_json(url + '?' + urlencode({'start_time': when}), headers=HEADERS)
+    return {'messages': parse_messages(js, item['started_at'], t), 'until': t + CHAT_WINDOW}

@@ -127,3 +127,31 @@ def discover(slugs, exclude, n):
                 seen.add(it['id'])
                 out.append(it)
     return out
+
+
+# ---------- chat (solo lectura) ----------
+COMMENTS_QUERY = ('query($v:ID!,$t:Int!){video(id:$v){comments(contentOffsetSeconds:$t){edges{node{id '
+                  'contentOffsetSeconds commenter{displayName} message{userColor fragments{text}}}}}}}')
+
+
+def parse_comments(gql):
+    edges = ((((gql.get('data') or {}).get('video') or {}).get('comments') or {}).get('edges')) or []
+    out = []
+    for e in edges:
+        n = e['node']
+        msg = n.get('message') or {}
+        out.append({'id': n['id'], 'user': (n.get('commenter') or {}).get('displayName') or '?',
+                    'color': msg.get('userColor'), 'text': ''.join(f.get('text') or '' for f in msg.get('fragments') or []),
+                    'at': n.get('contentOffsetSeconds')})
+    return out
+
+
+def chat(item, t):
+    if item['kind'] == 'live':
+        from tvlibre.providers import twitch_irc
+        return {'messages': twitch_irc.LIVE.messages(item['channel']), 'until': None}
+    t = int(t)
+    gql = net.fetch_json(GQL, {'query': COMMENTS_QUERY, 'variables': {'v': item['ref'], 't': t}}, HEADERS)
+    msgs = [m for m in parse_comments(gql) if (m['at'] or 0) >= t]
+    # la página trae unos 50 mensajes; el siguiente pedido empieza donde terminó esta
+    return {'messages': msgs, 'until': (max(m['at'] for m in msgs) + 1) if msgs else t + 30}
