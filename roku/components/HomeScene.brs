@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -19,6 +19,12 @@ sub init()
     m.panel.observeField("closed", "onPanelClosed")
     m.chatTimer.observeField("fire", "chatTick")
     m.chatOn = m.reg.Read("chat") <> "0"
+    m.sleepTimer.observeField("fire", "sleepTick")
+    m.sleepOptions = [0, 5, 15, 30, 45, 60, 90, 120]
+    m.sleepIdx = 0
+    m.sleepAt = 0
+    m.onSleep = false
+    drawSleep()
     m.chatGen = 0
     m.muted = []
     m.refresh.observeField("fire", "onRefresh")
@@ -363,13 +369,13 @@ sub drawBar()
     paused = ""
     if m.video.state = "paused" then paused = " · en pausa"
     if m.item.kind = "live" then
-        m.pTime.text = "EN VIVO · " + q + paused + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
+        m.pTime.text = "EN VIVO · " + q + paused + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
         m.pFill.width = 1760
         return
     end if
     t = curTime()
     d = curDuration()
-    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t) + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
+    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t) + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
     if d > 0 then m.pFill.width = 1760 * t / d else m.pFill.width = 0
 end sub
 
@@ -608,6 +614,82 @@ sub toggleChat()
     if m.chatOn then showToast("Chat visible") else showToast("Chat oculto")
 end sub
 
+' ---------- temporizador de apagado ----------
+function sleepNote() as string
+    queda = sleepLeft()
+    if queda <= 0 then return ""
+    return " · se apaga en " + Int((queda + 59) / 60).ToStr() + " min"
+end function
+
+function sleepLeft() as integer
+    if m.sleepAt = 0 then return 0
+    return m.sleepAt - nowSecs()
+end function
+
+sub drawSleep()
+    queda = sleepLeft()
+    txt = "Apagar: no"
+    if queda > 0 then txt = "Apagar en " + Int((queda + 59) / 60).ToStr() + " min"
+    if m.onSleep then
+        m.sleep.text = "< >  " + txt
+        m.sleep.color = "0xFFFFFFFF"
+    else
+        m.sleep.text = txt
+        m.sleep.color = "0x888888FF"
+    end if
+end sub
+
+sub setSleep(idx as integer)
+    n = m.sleepOptions.count()
+    m.sleepIdx = (idx + n) mod n
+    mins = m.sleepOptions[m.sleepIdx]
+    m.sleepWarn.visible = false
+    if mins = 0 then
+        m.sleepAt = 0
+        m.sleepTimer.control = "stop"
+    else
+        m.sleepAt = nowSecs() + mins * 60
+        m.sleepTimer.control = "start"
+    end if
+    drawSleep()
+end sub
+
+sub cancelSleep()
+    setSleep(0)
+    showToast("Temporizador cancelado")
+end sub
+
+sub sleepTick()
+    queda = sleepLeft()
+    if queda <= 0 then
+        powerOff()
+        return
+    end if
+    if queda <= 60 then
+        m.sleepWarnText.text = "Se apaga en " + queda.ToStr() + " s" + Chr(10) + "Pulsa cualquier botón para seguir viendo"
+        m.sleepWarn.visible = true
+    end if
+    drawSleep()
+    if m.item <> invalid and m.bar.visible then drawBar()
+end sub
+
+' Pausa y le pide al Roku que se apague por ECP; con CEC activo, el Roku apaga también la TV.
+sub powerOff()
+    setSleep(0)
+    if m.item <> invalid then m.video.control = "pause"
+    t = CreateObject("roSGNode", "Api")
+    t.url = "http://127.0.0.1:8060/keypress/PowerOff"
+    t.method = "POST"
+    t.body = {}
+    t.observeField("result", "onPowerOff")
+    m.tasks.push(t)
+    t.control = "RUN"
+end sub
+
+sub onPowerOff(ev as object)
+    print "apagado por ECP: "; FormatJson(ev.getData())
+end sub
+
 ' ---------- panel de canales ----------
 sub openPanel()
     m.onBri = false
@@ -626,6 +708,10 @@ end sub
 
 ' ---------- teclado ----------
 function onKeyEvent(key as string, press as boolean) as boolean
+    if m.sleepWarn.visible then  ' durante el aviso, cualquier botón cancela el apagado
+        if press then cancelSleep()
+        return true
+    end if
     if m.panel.visible then return true  ' el panel maneja sus teclas; las que suben no tocan la portada
     if m.item <> invalid then return playerKey(key, press)
     if not press then return false
@@ -634,9 +720,31 @@ function onKeyEvent(key as string, press as boolean) as boolean
         return true
     end if
     ' portada: Arriba desde la primera fila sube al brillo, como el sol de la TV
+    if m.onSleep then
+        if key = "left" or key = "right" then
+            if key = "right" then setSleep(m.sleepIdx + 1) else setSleep(m.sleepIdx - 1)
+        else if key = "down" then
+            m.onSleep = false
+            m.onBri = true
+            drawSleep()
+            setBrightness(m.brightness, false)
+        else if key = "back" then
+            m.onSleep = false
+            drawSleep()
+            m.rows.setFocus(true)
+        end if
+        return true
+    end if
     if m.onBri then
         if key = "left" or key = "right" then
             if key = "right" then setBrightness(m.brightness + 10, true) else setBrightness(m.brightness - 10, true)
+            return true
+        else if key = "up" then
+            ' arriba del brillo está el temporizador de apagado
+            m.onBri = false
+            m.onSleep = true
+            setBrightness(m.brightness, false)
+            drawSleep()
             return true
         else if key = "down" or key = "back" then
             m.onBri = false

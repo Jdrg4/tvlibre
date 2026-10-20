@@ -6,7 +6,8 @@
     <Rectangle width="1920" height="1080" color="0x0E0E10FF"/>
     <Group id="home">
       <Label text="tvlibre" translation="[80,40]" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
-      <Label text="*  Canales" translation="[600,48]" width="380" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
+      <Label text="*  Canales" translation="[380,48]" width="300" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
+      <Label id="sleep" translation="[700,48]" width="330" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
       <Label id="bri" translation="[1000,48]" width="420" horizAlign="right" font="font:SmallSystemFont" color="0xBBBBBBFF"/>
       <Label id="clock" translation="[1440,48]" width="400" horizAlign="right" font="font:MediumSystemFont" color="0xFFFFFFFF"/>
       <Label id="msg" translation="[80,115]" width="1760" font="font:SmallestSystemFont" color="0xFF8080FF"/>
@@ -41,6 +42,12 @@
     <ChannelsPanel id="panel" visible="false"/>
     <!-- brillo propio: un velo negro encima de todo, como en la TV -->
     <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
+    <!-- aviso del temporizador de apagado: encima del velo de brillo para que se lea aunque esté oscuro -->
+    <Group id="sleepWarn" visible="false">
+      <Rectangle translation="[460,420]" width="1000" height="240" color="0x18181BF0"/>
+      <Label id="sleepWarnText" translation="[460,420]" width="1000" height="240" horizAlign="center" vertAlign="center"
+        wrap="true" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
+    </Group>
     <!-- recibe las teclas del reproductor y del brillo: sin él la fila oculta se queda con el foco y OK abre otra tarjeta -->
     <Group id="keys" focusable="true"/>
     <Timer id="refresh" duration="60" repeat="true"/>
@@ -52,5 +59,6 @@
     <Timer id="seekTimer" duration="0.4"/>
     <Timer id="holdTimer" duration="0.15" repeat="true"/>
     <Timer id="chatTimer" duration="1" repeat="true"/>
+    <Timer id="sleepTimer" duration="1" repeat="true"/>
   </children>
 </component>
