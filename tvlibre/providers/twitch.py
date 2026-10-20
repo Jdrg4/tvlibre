@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from urllib.parse import urlencode
 
-from tvlibre import net
+from tvlibre import chatparts, net
 
 GQL = 'https://gql.twitch.tv/gql'
 CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'  # el del sitio web de Twitch; público
@@ -130,8 +130,9 @@ def discover(slugs, exclude, n):
 
 
 # ---------- chat (solo lectura) ----------
+EMOTE_URL = 'https://static-cdn.jtvnw.net/emoticons/v2/%s/default/dark/1.0'
 COMMENTS_QUERY = ('query($v:ID!,$t:Int!){video(id:$v){comments(contentOffsetSeconds:$t){edges{node{id '
-                  'contentOffsetSeconds commenter{displayName} message{userColor fragments{text}}}}}}}')
+                  'contentOffsetSeconds commenter{displayName} message{userColor fragments{text emote{emoteID}}}}}}}}')
 
 
 def parse_comments(gql):
@@ -140,9 +141,12 @@ def parse_comments(gql):
     for e in edges:
         n = e['node']
         msg = n.get('message') or {}
+        frags = msg.get('fragments') or []
+        chunks = [{'e': EMOTE_URL % f['emote']['emoteID']} if (f.get('emote') or {}).get('emoteID')
+                  else (f.get('text') or '') for f in frags]
         out.append({'id': n['id'], 'user': (n.get('commenter') or {}).get('displayName') or '?',
-                    'color': msg.get('userColor'), 'text': ''.join(f.get('text') or '' for f in msg.get('fragments') or []),
-                    'at': n.get('contentOffsetSeconds')})
+                    'color': msg.get('userColor'), 'text': ''.join(f.get('text') or '' for f in frags),
+                    'parts': chatparts.build(chunks), 'at': n.get('contentOffsetSeconds')})
     return out
 
 

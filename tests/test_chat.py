@@ -48,14 +48,16 @@ class TwitchChatTest(unittest.TestCase):
             {'node': {'id': 'c2', 'contentOffsetSeconds': 3620, 'commenter': None,
                       'message': {'userColor': None, 'fragments': [{'text': 'x'}]}}}]}}}}
         msgs = twitch.parse_comments(gql)
-        self.assertEqual(msgs[0], {'id': 'c1', 'user': 'Uno', 'color': '#112233', 'text': 'hola Kappa', 'at': 3597})
+        self.assertEqual(msgs[0], {'id': 'c1', 'user': 'Uno', 'color': '#112233', 'text': 'hola Kappa',
+                                   'parts': [{'t': 'hola Kappa'}], 'at': 3597})
         self.assertEqual(msgs[1]['user'], '?')
 
     def test_irc_privmsg(self):
         line = ('@badge-info=;color=#FF4500;display-name=Alguien;id=abc-123;tmi-sent-ts=1 '
                 ':alguien!alguien@alguien.tmi.twitch.tv PRIVMSG #canal :qué pasa :D')
         self.assertEqual(twitch_irc.parse_line(line),
-                         {'id': 'abc-123', 'user': 'Alguien', 'color': '#FF4500', 'text': 'qué pasa :D', 'at': None})
+                         {'id': 'abc-123', 'user': 'Alguien', 'color': '#FF4500', 'text': 'qué pasa :D',
+                          'parts': [{'t': 'qué pasa :D'}], 'at': None})
         self.assertIsNone(twitch_irc.parse_line(':tmi.twitch.tv 001 justinfan1 :Welcome'))
 
 

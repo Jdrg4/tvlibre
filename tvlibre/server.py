@@ -23,6 +23,7 @@ ITEM_RE = re.compile(r'^[a-z0-9_-]+$')
 SLUG_RE = re.compile(r'^[a-z0-9_-]{1,40}$')
 STATIC_RE = re.compile(r'^[A-Za-z0-9_-]+\.(html|js|css|png|svg|ico)$')
 IMG_HOSTS = ('jtvnw.net', 'kick.com', 'live-video.net')
+TWEMOJI_PATH = '/gh/jdecked/twemoji@'
 DIAG_MAX = 5 * 1024 * 1024
 TYPES = {'html': 'text/html; charset=utf-8', 'js': 'application/javascript; charset=utf-8',
          'css': 'text/css; charset=utf-8', 'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
@@ -58,7 +59,22 @@ def host_allowed(host):
 def _img_allowed(url):
     p = urlparse(url)
     host = (p.hostname or '').lower()
-    return p.scheme == 'https' and any(host == h or host.endswith('.' + h) for h in IMG_HOSTS)
+    if p.scheme != 'https':
+        return False
+    if host == 'cdn.jsdelivr.net':  # emojis del chat; jsDelivr sirve cualquier repositorio, así que solo esta ruta
+        return p.path.startswith(TWEMOJI_PATH) and '..' not in p.path
+    return any(host == h or host.endswith('.' + h) for h in IMG_HOSTS)
+
+
+def _img_type(body, url):
+    # por los primeros bytes: los emotes de Kick van en una URL sin extensión (.../fullsize) y son GIF
+    if body[:4] == b'GIF8':
+        return 'image/gif'
+    if body[:4] == b'\x89PNG':
+        return 'image/png'
+    if body[:4] == b'RIFF' and body[8:12] == b'WEBP':
+        return 'image/webp'
+    return TYPES.get(urlparse(url).path.rsplit('.', 1)[-1].lower(), 'image/jpeg')
 
 
 def make_handler(app):
@@ -154,8 +170,8 @@ def make_handler(app):
                     url = (qs.get('u') or [''])[0]
                     if not _img_allowed(url):
                         return self.send(400, b'host de imagen no permitido')
-                    ext = urlparse(url).path.rsplit('.', 1)[-1].lower()
-                    return self.send(200, app['fetch'](url), TYPES.get(ext, 'image/jpeg'),
+                    body = app['fetch'](url)
+                    return self.send(200, body, _img_type(body, url),
                                      {'Cache-Control': 'max-age=3600'})
                 return self.send(404, b'no existe')
             except Exception as e:  # proveedor o CDN caídos: mensaje corto, nunca un traceback

@@ -5,7 +5,10 @@ import threading
 import time
 from collections import deque
 
+from tvlibre import chatparts
+
 HOST, PORT = 'irc.chat.twitch.tv', 6667
+EMOTE_URL = 'https://static-cdn.jtvnw.net/emoticons/v2/%s/default/dark/1.0'
 
 
 def parse_line(line):
@@ -21,8 +24,24 @@ def parse_line(line):
         return None
     nick = parts[0][1:].split('!')[0]
     text = parts[3][1:] if parts[3].startswith(':') else parts[3]
+    if text.startswith('\x01ACTION ') and text.endswith('\x01'):  # /me
+        text = text[8:-1]
+    # emotes=25:5-9,12-16/1902:0-3 → posiciones (en caracteres) de cada emote
+    spans = []
+    for group in filter(None, (tags.get('emotes') or '').split('/')):
+        eid, _, ranges = group.partition(':')
+        for r in ranges.split(','):
+            a, _, b = r.partition('-')
+            if a.isdigit() and b.isdigit():
+                spans.append((int(a), int(b), eid))
+    chunks, pos = [], 0
+    for a, b, eid in sorted(spans):
+        if a >= pos:
+            chunks += [text[pos:a], {'e': EMOTE_URL % eid}]
+            pos = b + 1
     return {'id': tags.get('id') or '%s-%f' % (nick, time.time()), 'user': tags.get('display-name') or nick,
-            'color': tags.get('color') or None, 'text': text, 'at': None}
+            'color': tags.get('color') or None, 'text': text, 'parts': chatparts.build(chunks + [text[pos:]]),
+            'at': None}
 
 
 class Live:

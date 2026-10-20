@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
-from tvlibre import net
+from tvlibre import chatparts, net
 
 API = 'https://kick.com/api/v2/channels/'
 SEARCH = 'https://kick.com/api/search?'
@@ -103,7 +103,8 @@ def discover(slugs, exclude, n):
 
 
 # ---------- chat (solo lectura) ----------
-EMOTE_RE = re.compile(r'\[emote:\d+:([^\]]+)\]')
+EMOTE_RE = re.compile(r'\[emote:(\d+):([^\]]+)\]')
+EMOTE_URL = 'https://files.kick.com/emotes/%s/fullsize'
 CHAT_WINDOW = 5  # medido: con start_time, Kick devuelve los mensajes de 5 s
 _ids = {}  # slug → id de canal (no cambia)
 
@@ -122,10 +123,15 @@ def parse_messages(js, started_at=None, since=None):
             at = int(_secs(m['created_at']) - _secs(started_at))
             if since is not None and at < since:
                 continue
-        sender = m.get('sender') or {}
+        sender, content = m.get('sender') or {}, m.get('content') or ''
+        chunks, pos = [], 0
+        for e in EMOTE_RE.finditer(content):
+            chunks += [content[pos:e.start()], {'e': EMOTE_URL % e.group(1)}]
+            pos = e.end()
         out.append({'id': str(m['id']), 'user': sender.get('username') or '?',
                     'color': (sender.get('identity') or {}).get('color'),
-                    'text': EMOTE_RE.sub(r':\1:', m.get('content') or ''), 'at': at})
+                    'text': EMOTE_RE.sub(r':\2:', content), 'parts': chatparts.build(chunks + [content[pos:]]),
+                    'at': at})
     out.sort(key=lambda x: x['at'] if x['at'] is not None else 0)
     return out if started_at else out[::-1]  # en vivo Kick da el más nuevo primero
 

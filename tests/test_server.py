@@ -101,6 +101,14 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(h.get_all('Cache-Control'), ['max-age=3600'])
 
+    def test_img_tipo_por_contenido(self):
+        # los emotes de Kick van en una URL sin extensión (.../fullsize) y son GIF
+        from tvlibre.server import _img_type
+        self.assertEqual(_img_type(b'GIF89a...', 'https://files.kick.com/emotes/1/fullsize'), 'image/gif')
+        self.assertEqual(_img_type(b'RIFF....WEBPVP8', 'x'), 'image/webp')
+        self.assertEqual(_img_type(b'\x89PNG\r\n', 'x'), 'image/png')
+        self.assertEqual(_img_type(b'????', 'https://a.jtvnw.net/x.png'), 'image/png')
+
     def raw_post(self, path, body, ctype, host=None):
         h = {'Content-Type': ctype}
         if host:
@@ -197,6 +205,14 @@ class ServerTest(unittest.TestCase):
     def test_img_host_no_permitido(self):
         self.assertEqual(self.get('/img?u=https://evil.com/x.jpg')[0], 400)
         self.assertEqual(self.get('/img?u=https://images.kick.com.evil.com/x.jpg')[0], 400)
+        # de jsDelivr solo Twemoji: sirve cualquier repositorio de GitHub
+        self.assertEqual(self.get('/img?u=https://cdn.jsdelivr.net/gh/otro/repo/x.png')[0], 400)
+
+    def test_img_twemoji(self):
+        from tvlibre.server import _img_allowed
+        self.assertTrue(_img_allowed('https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/1f602.png'))
+        self.assertTrue(_img_allowed('https://files.kick.com/emotes/4148144/fullsize'))
+        self.assertFalse(_img_allowed('https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/../../evil/x.png'))
 
     def test_home_json(self):
         code, _, body = self.get('/api/home')
