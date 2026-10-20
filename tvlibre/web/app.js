@@ -74,6 +74,7 @@
     brightness = Math.max(30, Math.min(100, v));
     $('dim').style.opacity = String((100 - brightness) / 100);
     $('brilloVal').innerHTML = brightness;
+    $('pBri').innerHTML = brightness + '%';
     if (save) { xhr('POST', '/api/state', {brightness: brightness}); }
   }
 
@@ -306,7 +307,8 @@
     } else if (k === KEY.LEFT || k === KEY.RIGHT) {
       seekKey(k);
     } else if (k === KEY.UP || k === KEY.DOWN) {
-      toggleQuality();
+      setBrightness(brightness + (k === KEY.UP ? 10 : -10), true);
+      showBar();
     } else {
       showBar();
     }
@@ -381,7 +383,7 @@
       if (!player) { return; }
       var a = this.getAttribute('data-a');
       if (e && e.stopPropagation) { e.stopPropagation(); }
-      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else { seekBy(+a); showBar(); }
+      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else if (a === 'b-' || a === 'b+') { setBrightness(brightness + (a === 'b+' ? 10 : -10), true); showBar(); } else { seekBy(+a); showBar(); }
     };
   }
 

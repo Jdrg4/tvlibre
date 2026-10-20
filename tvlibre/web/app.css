@@ -74,5 +74,6 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .nav:hover, .bbtn:hover, .cbtn:hover { background: #9147ff; color: #fff; }
 .bbtn { display: inline-block; width: 34px; text-align: center; border-radius: 17px; background: #26262c; color: #fff; }
 #ctrls { margin-top: 14px; }
+#pBri { display: inline-block; min-width: 56px; text-align: center; font-size: 20px; margin-right: 10px; }
 .cbtn { display: inline-block; font-size: 20px; padding: 8px 18px; margin-right: 10px; border-radius: 22px;
   background: rgba(255,255,255,.15); }

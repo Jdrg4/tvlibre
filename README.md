@@ -17,6 +17,7 @@ sirve una interfaz pensada para el control remoto:
   medias continúan donde ibas.
 - **Brillo propio**, por si las apps de tu TV te lo fuerzan al máximo.
 - 1080p por defecto, con 720p a un botón si el wifi no da.
+- Funciona con las flechas del control **y** con el puntero (la "manito") que muestran algunos navegadores de TV.
 
 ## ¿Sirve en mi TV?
 
@@ -81,8 +82,9 @@ Para probarlo sin instalar nada: copia `config.example.json` a `config.local.jso
 | Portada, sobre el ☀ | ← → | Bajar o subir el brillo |
 | Reproductor | ← → | Retroceder o adelantar 10 s (mantener: 30 s y 60 s) |
 | Reproductor | OK | Pausa |
-| Reproductor | ↑ ↓ | Cambiar entre 1080p y 720p |
+| Reproductor | ↑ ↓ | Subir o bajar el brillo |
 | Reproductor | Atrás | Volver a la portada (guarda dónde ibas) |
+| Con puntero | Clic | Tarjetas, flechas ‹ › de cada fila, −/+ del brillo y botones del reproductor (calidad incluida) |
 
 ## Seguridad: solo en tu red
 
