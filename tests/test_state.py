@@ -26,6 +26,12 @@ class StateTest(unittest.TestCase):
         s.set_resume('b', 500, None)
         self.assertEqual(s.resume('b'), 500)
 
+    def test_canales_ida_y_vuelta(self):
+        s = State(self.path)
+        self.assertIsNone(s.channels())
+        s.set_channels([{'platform': 'kick', 'slug': 'a'}])
+        self.assertEqual(State(self.path).channels(), [{'platform': 'kick', 'slug': 'a'}])
+
     def test_state_persiste(self):
         State(self.path).set_brightness(60)
         self.assertEqual(State(self.path).brightness(), 60)

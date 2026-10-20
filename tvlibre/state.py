@@ -1,4 +1,4 @@
-"""Estado persistente: brillo y punto de retomar de cada video (un JSON compartido)."""
+"""Estado persistente: brillo, canales seguidos y punto de retomar de cada video (un JSON compartido)."""
 import json
 import os
 import threading
@@ -30,6 +30,15 @@ class State:
     def set_brightness(self, v):
         with self._lock:
             self._data['brightness'] = max(30, min(100, int(v)))
+            self._save()
+
+    def channels(self):
+        # None mientras nunca se hayan editado desde la pantalla: valen los de la configuración
+        return self._data.get('channels')
+
+    def set_channels(self, channels):
+        with self._lock:
+            self._data['channels'] = [{'platform': c['platform'], 'slug': c['slug']} for c in channels]
             self._save()
 
     def resume(self, item_id):
