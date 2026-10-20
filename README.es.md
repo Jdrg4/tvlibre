@@ -37,6 +37,8 @@ entrega a la pantalla una portada pensada para el control remoto.
 - 🔍 **Busca y sigue streamers desde el control.** Escribe un nombre, mira quién está en vivo en Kick y Twitch y
   agrégalo a tu portada (o quítalo) sin tocar el servidor.
 - 🧭 **"También en vivo".** Una fila con otros directos en español de las mismas categorías que tus canales.
+- 💬 **El chat al lado del video**, en vivo y también en los anteriores, sincronizado con el segundo que estás
+  viendo. Solo lectura, y se muestra u oculta con un botón.
 - ⏯️ **Retoma donde ibas.** Los anteriores se pueden adelantar y, si los dejas a medias, siguen donde quedaste,
   en la TV o en el Roku.
 - 🔆 **Brillo propio**, por si las apps de tu TV lo fuerzan al máximo. 1080p por defecto y 720p a un botón.
@@ -148,7 +150,8 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 | Reproductor | ← → (mantener: 30 s y 60 s) | ← → (mantener acelera hasta 5 min por paso) · ⏪ ⏩ 10 min | Retroceder o adelantar |
 | Reproductor | OK | OK / ⏯ | Pausa |
 | Reproductor | ↑ ↓ | ↑ ↓ | Subir o bajar el brillo |
-| Reproductor | Botón de calidad (puntero) | `*` | Cambiar entre 1080p y 720p |
+| Reproductor | C, botón rojo o "💬 Chat" | `*` | Mostrar u ocultar el chat |
+| Reproductor | Botón de calidad (puntero) | ↺ | Cambiar entre 1080p y 720p |
 | Reproductor | Atrás | Atrás | Volver a la portada (guarda dónde ibas) |
 
 En la TV también funciona el puntero (la "manito"): clic en tarjetas, en las flechas ‹ › de cada fila, en
@@ -170,6 +173,8 @@ En la TV también funciona el puntero (la "manito"): clic en tarjetas, en las fl
   y sin las etiquetas que un reproductor viejo no entiende.
 - **Anteriores de Twitch:** vienen en fMP4 y tvlibre convierte cada segmento a MPEG-TS con
   `ffmpeg -c copy`, como máximo 3 a la vez.
+- **Chat:** en vivo, el de Kick sale de su API de mensajes y el de Twitch de su IRC público, en modo anónimo; la
+  conexión se cierra sola si nadie lo mira. En los anteriores se pide por el segundo del video.
 - **Tramos silenciados:** Twitch quita el audio de partes de sus anteriores por derechos de autor. tvlibre los
   detecta (segmentos `-muted`) y la barra del reproductor lo avisa, para que no parezca una falla.
 - **Roku:** el canal (BrightScript + SceneGraph) usa la misma API (`/api/home`, `/play/<id>.m3u8`) y el

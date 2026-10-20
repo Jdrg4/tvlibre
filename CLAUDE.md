@@ -21,6 +21,7 @@ En la TV: `/` es la app y `/diagnostico` muestra capacidades, teclas y pruebas d
 | `tvlibre/providers/{twitch,kick}.py` | Consultan las APIs no oficiales: `channel_state(slug, n)`, `master_url(item)`, `search(q)` y `discover(slugs, exclude, n)`, con sus `parse_*` puros |
 | `tvlibre/catalog.py` | Portada (directos, anteriores y "También en vivo", caché de 60 s y 5 min), búsqueda y seguir/dejar de seguir |
 | `tvlibre/hls.py` | Elige variante y reescribe playlists (URLs absolutas, etiquetas filtradas, `#EXT-X-MAP`) |
+| `tvlibre/providers/twitch_irc.py` | Chat en vivo de Twitch por IRC anónimo: un hilo por canal, se cierra a los 120 s sin pedidos |
 | `tvlibre/proxy.py` | Sesiones de playlist con renovación de token, segmentos, LRU |
 | `tvlibre/remux.py` | Convierte fMP4 a MPEG-TS con `ffmpeg -c copy` (máximo 3 a la vez) |
 | `tvlibre/state.py` | Brillo, canales seguidos y puntos de retomar en un JSON, con escritura atómica |
