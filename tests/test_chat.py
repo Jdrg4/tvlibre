@@ -66,15 +66,12 @@ class FakeSock:
     def sendall(self, b):
         self.sent.append(b)
 
-    def makefile(self, *a, **k):
-        return self
-
-    def readline(self):
+    def recv(self, n):
         if self.lines:
-            return self.lines.pop(0)
+            return self.lines.pop(0).encode()
         time.sleep(0.05)
         if self.closed:
-            return ''
+            return b''
         raise TimeoutError
 
     def settimeout(self, t):
@@ -82,6 +79,33 @@ class FakeSock:
 
     def close(self):
         self.closed = True
+
+
+class LiveRealSocketTest(unittest.TestCase):
+    def test_pausa_sin_mensajes_no_reconecta(self):
+        # con makefile + timeout, tras el primer segundo en silencio Python deja el socket inservible y se reconectaba
+        import socket
+        ours, theirs = socket.socketpair()
+        calls = []
+
+        def connect(*a, **k):
+            calls.append(1)
+            return ours if len(calls) == 1 else socket.socketpair()[0]
+
+        live = twitch_irc.Live(connect=connect, idle=5)
+        live.messages('canal')
+
+        def talk():
+            time.sleep(1.5)
+            theirs.sendall('@display-name=Uno;id=m1 :uno!uno@uno.tmi.twitch.tv PRIVMSG #canal :hola ñ\r\n'.encode())
+        threading.Thread(target=talk, daemon=True).start()
+        deadline = time.time() + 4
+        while not live.messages('canal') and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertEqual([m['text'] for m in live.messages('canal')], ['hola ñ'])
+        self.assertEqual(len(calls), 1)
+        live.idle = 0
+        theirs.close()
 
 
 class LiveTest(unittest.TestCase):

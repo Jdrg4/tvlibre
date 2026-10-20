@@ -50,6 +50,13 @@ class LogicTest(unittest.TestCase):
                 'return [TVL.chatJump(s,101), TVL.chatJump(s,50), TVL.chatJump(s,4000)];})()')
         self.assertEqual(r, [False, True, True])
 
+    def test_chat_ids_acotados(self):
+        # en un directo de horas los ids vistos crecían sin límite en la memoria de la TV
+        r = run('(function(){var s=TVL.chatReset(); for(var j=0;j<30;j++){var a=[];'
+                'for(var i=0;i<50;i++){a.push({id:"m"+j+"_"+i});} TVL.chatAddLive(s,a);}'
+                'var n=TVL.chatAddLive(s,[{id:"m29_49"}]); return [Object.keys(s.ids).length <= 500, n];})()')
+        self.assertEqual(r, [True, 0])
+
     def test_chat_tope_de_lineas(self):
         r = run('(function(){var s=TVL.chatReset(), a=[]; for(var i=0;i<60;i++){a.push({id:"m"+i});}'
                 'TVL.chatAddLive(s,a); return [s.shown.length, s.shown[0].id];})()')

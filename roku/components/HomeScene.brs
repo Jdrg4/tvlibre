@@ -474,7 +474,7 @@ end function
 
 ' ---------- chat de solo lectura (misma lógica que TVL.chat* del front de la TV) ----------
 sub chatReset()
-    m.cs = {shown: [], buf: [], ids: {}, until: -1, last: -1}
+    m.cs = {shown: [], buf: [], ids: {}, lastIds: [], until: -1, last: -1}
     m.chatGen = m.chatGen + 1
     m.chatBusy = false
     m.chatN = 0
@@ -485,6 +485,19 @@ sub chatKeep()
     while m.cs.shown.count() > 40
         m.cs.shown.shift()
     end while
+    if m.cs.ids.Count() <= 500 then return
+    ' en un directo de horas los ids crecían sin tope: basta con lo visible, lo pendiente y la última respuesta
+    ids = {}
+    for each msg in m.cs.shown
+        ids[msg.id] = true
+    end for
+    for each msg in m.cs.buf
+        ids[msg.id] = true
+    end for
+    for each id in m.cs.lastIds
+        ids[id] = true
+    end for
+    m.cs.ids = ids
 end sub
 
 sub drawChat()
@@ -545,6 +558,10 @@ sub onChat(ev as object)
     m.chatBusy = false
     if r.error <> invalid or r.data = invalid or r.data.messages = invalid then return  ' el chat nunca molesta al video
     added = 0
+    m.cs.lastIds = []
+    for each msg in r.data.messages
+        m.cs.lastIds.push(msg.id)
+    end for
     for each msg in r.data.messages
         if m.cs.ids[msg.id] = invalid then
             m.cs.ids[msg.id] = true

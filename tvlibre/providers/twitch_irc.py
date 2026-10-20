@@ -49,25 +49,32 @@ class Live:
                 sock.settimeout(1)
                 sock.sendall(b'CAP REQ :twitch.tv/tags\r\nNICK justinfan%d\r\nJOIN #%s\r\n'
                              % (random.randint(10000, 99999), login.encode()))
-                f = sock.makefile('r', encoding='utf-8', errors='replace')
+                # recv con buffer propio: con makefile, tras el primer timeout Python deja el objeto inservible
+                pending = b''
                 while time.time() - room['seen'] < self.idle:
                     try:
-                        line = f.readline()
+                        data = sock.recv(65536)
                     except (TimeoutError, socket.timeout):
                         continue
-                    if not line:
-                        break  # Twitch cerró: se reconecta
-                    if line.startswith('PING'):
-                        sock.sendall(('PONG' + line[4:].rstrip('\r\n') + '\r\n').encode())
-                        continue
-                    msg = parse_line(line)
-                    if msg:
-                        room['buf'].append(msg)
+                    if not data:
+                        break  # Twitch cerró: se reconecta tras la pausa de abajo
+                    pending += data
+                    *lines, pending = pending.split(b'\r\n')
+                    for raw in lines:
+                        line = raw.decode('utf-8', 'replace')
+                        if line.startswith('PING'):
+                            sock.sendall(('PONG' + line[4:] + '\r\n').encode())
+                            continue
+                        msg = parse_line(line)
+                        if msg:
+                            room['buf'].append(msg)
             except OSError:
-                time.sleep(3)
+                pass
             finally:
                 if sock:
                     sock.close()
+            if time.time() - room['seen'] < self.idle:
+                time.sleep(3)  # sin esto, un cierre limpio de Twitch reconectaba en bucle
         with self._lock:
             if self._rooms.get(login) is room:
                 del self._rooms[login]
