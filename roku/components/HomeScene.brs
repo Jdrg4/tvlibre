@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatText", "chatTimer"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -482,7 +482,7 @@ sub chatReset()
     m.chatGen = m.chatGen + 1
     m.chatBusy = false
     m.chatN = 0
-    m.chatText.text = ""
+    m.chatLines.removeChildrenIndex(m.chatLines.getChildCount(), 0)
 end sub
 
 sub chatKeep()
@@ -504,18 +504,21 @@ sub chatKeep()
     m.cs.ids = ids
 end sub
 
+' Del más nuevo hacia arriba, hasta llenar 720 px del panel.
 sub drawChat()
+    m.chatLines.removeChildrenIndex(m.chatLines.getChildCount(), 0)
     s = m.cs.shown
-    txt = ""
-    first = s.count() - 9
-    if first < 0 then first = 0
-    for i = first to s.count() - 1
-        line = cleanText(s[i].user + ": " + s[i].text)
-        if Len(line) > 90 then line = Left(line, 88) + "…"
-        if txt <> "" then txt = txt + Chr(10)
-        txt = txt + line
-    end for
-    m.chatText.text = txt
+    bottom = 720
+    i = s.count() - 1
+    while i >= 0 and bottom > 0
+        line = CreateObject("roSGNode", "ChatLine")
+        line.msg = s[i]
+        bottom = bottom - line.height - 10
+        if bottom < 0 then exit while
+        line.translation = [0, bottom]
+        m.chatLines.appendChild(line)
+        i = i - 1
+    end while
 end sub
 
 function chatDue(spot as float) as integer

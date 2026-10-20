@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Una línea del chat: nombre en su color, palabras y emotes/emojis como imágenes, con salto de renglón. -->
+<component name="ChatLine" extends="Group">
+  <interface>
+    <field id="width" type="float" value="476"/>
+    <field id="msg" type="assocarray" onChange="layout"/>
+    <field id="height" type="float"/>
+  </interface>
+  <script type="text/brightscript" uri="format.brs"/>
+  <script type="text/brightscript" uri="ChatLine.brs"/>
+</component>

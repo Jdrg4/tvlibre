@@ -22,8 +22,8 @@
       <Rectangle width="2" height="1080" color="0x2F2F35FF"/>
       <Label text="Chat" translation="[32,36]" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
       <Label text="OK  ocultar" translation="[32,44]" width="476" horizAlign="right" font="font:SmallestSystemFont" color="0x888888FF"/>
-      <Label id="chatText" translation="[32,110]" width="476" height="720" wrap="true" vertAlign="bottom" lineSpacing="8"
-        font="font:SmallestSystemFont" color="0xEFEFF1FF"/>
+      <!-- las líneas (ChatLine) se apilan desde abajo; arriba de 830 queda libre para la barra del reproductor -->
+      <Group id="chatLines" translation="[32,110]"/>
     </Group>
     <Label id="loading" text="Cargando…" width="1920" height="1080" horizAlign="center" vertAlign="center"
       font="font:MediumBoldSystemFont" color="0xFFFFFFFF" visible="false"/>
