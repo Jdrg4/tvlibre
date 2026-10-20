@@ -143,6 +143,12 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(len(r['errors']), 1)
         self.assertTrue(r['errors'][0].startswith('kick: '))
 
+    def test_search_alterna_plataformas(self):
+        # sin alternar, los 8 de una plataforma tapaban al canal real de la otra
+        self.tw.found = [{'platform': 'twitch', 'slug': 't%d' % i, 'live': False} for i in range(3)]
+        self.ki.found = [{'platform': 'kick', 'slug': 'k%d' % i, 'live': i == 1} for i in range(2)]
+        self.assertEqual([x['slug'] for x in self.cat.search('x')['results']], ['k1', 't0', 'k0', 't1', 't2'])
+
     def test_discover_excluye_y_ordena(self):
         def it(slug, v):
             return {'id': 'kick-live-' + slug, 'platform': 'kick', 'kind': 'live', 'channel': slug, 'viewers': v}

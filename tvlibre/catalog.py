@@ -55,12 +55,14 @@ class Catalog:
     def search(self, q):
         following = {(c.platform, c.slug) for c in self.channels()}
         plats = list(self.providers)
-        results, errors = [], []
+        per, errors = [], []
         for p, r in zip(plats, self._run([lambda p=p: self.providers[p].search(q) for p in plats])):
             if isinstance(r, Exception):
                 errors.append('%s: %s' % (p, str(r)[:120]))
                 continue
-            results.extend(dict(x, following=(x['platform'], x['slug']) in following) for x in r)
+            per.append([dict(x, following=(x['platform'], x['slug']) in following) for x in r])
+        # se alternan las plataformas: si no, los 8 de una tapaban al canal real de la otra
+        results = [lst[i] for i in range(max(map(len, per), default=0)) for lst in per if i < len(lst)]
         results.sort(key=lambda x: not x.get('live'))  # en vivo primero; sort es estable
         return {'results': results, 'errors': errors}
 

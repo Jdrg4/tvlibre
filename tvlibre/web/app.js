@@ -96,24 +96,36 @@
       esc(it.channel) + ' · ' + relDay(it.started_at) + '</div></div>';
   }
 
+  function discCard(it) {
+    return '<div class="card vod disc" data-id="' + esc(it.id) + '">' +
+      '<div class="th ' + it.platform + '" style="' + img(it.thumb, true) + '"><span class="badge">● EN VIVO</span></div>' +
+      '<div class="t">' + esc(it.title) + '</div>' +
+      '<div class="m"><span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span>' +
+      esc(it.channel) + ' · ' + viewers(it.viewers) + (it.category ? ' · ' + esc(it.category) : '') + '</div></div>';
+  }
+
   function focusedId() {
     var r = rows[focus.row];
     return r && r.items[focus.col] ? r.items[focus.col].id : null;
   }
 
   function render(keepId) {
-    var live = data.live, vods = data.vods, i;
-    var lh = '', vh = '';
+    var live = data.live, vods = data.vods, disc = data.discover || [], i;
+    var lh = '', vh = '', dh = '';
     for (i = 0; i < live.length; i++) { lh += liveCard(live[i]); }
     for (i = 0; i < vods.length; i++) { vh += vodCard(vods[i]); }
+    for (i = 0; i < disc.length; i++) { dh += discCard(disc[i]); }
     $('liveRow').innerHTML = lh;
+    $('discRow').innerHTML = dh;
+    $('discSec').style.display = disc.length ? '' : 'none';
     $('vodRow').innerHTML = vh || '<div class="empty">No hay streams anteriores.</div>';
     $('liveSec').style.display = live.length ? '' : 'none';
     $('msg').innerHTML = data.errors.length ? 'No se pudo consultar: ' + esc(data.errors.join(' · ')) : '';
 
-    rows = [{name: 'top', el: null, items: [{id: '__brillo'}]}];
+    rows = [{name: 'chan', el: null, items: [{id: '__canales'}]}, {name: 'top', el: null, items: [{id: '__brillo'}]}];
     if (live.length) { rows.push({name: 'live', el: $('liveRow'), items: live}); }
     if (vods.length) { rows.push({name: 'vods', el: $('vodRow'), items: vods}); }
+    if (disc.length) { rows.push({name: 'disc', el: $('discRow'), items: disc}); }
 
     var placed = false;
     if (keepId) {
@@ -125,7 +137,7 @@
     }
     if (!placed) {
       // primer arranque: el directo si hay; si no, el anterior más reciente
-      focus = {row: rows.length > 1 ? 1 : 0, col: 0};
+      focus = {row: rows.length > 2 ? 2 : 0, col: 0};
     }
     applyFocus();
   }
@@ -135,6 +147,8 @@
     for (i = 0; i < all.length; i++) { all[i].className = all[i].className.replace(/\s*\bfocus\b/g, ''); }
     var row = rows[focus.row];
     if (!row) { return; }
+    $('home').className = row.name === 'disc' ? 'scrolled' : '';
+    if (row.name === 'chan') { $('canales').className += ' focus'; return; }
     if (row.name === 'top') { $('brillo').className += ' focus'; return; }
     var card = row.el.children[focus.col];
     if (!card) { return; }
@@ -175,6 +189,9 @@
       focus.col--;
     } else if (k === KEY.RIGHT && focus.col < row.items.length - 1) {
       focus.col++;
+    } else if (k === KEY.ENTER && row.name === 'chan') {
+      openChan();
+      return;
     } else if (k === KEY.ENTER && row.name !== 'top') {
       openPlayer(row.items[focus.col]);
       return;
@@ -322,12 +339,125 @@
     }
   }
 
+  // ---------- canales: buscar en Kick y Twitch, seguir y dejar de seguir ----------
+  var chan = null;  // estado del panel mientras está abierto: {items, idx (-1 = buscador), changed, timer, seq}
+  var q = $('q');
+
+  function chanItems() {
+    var out = [], cs = data.channels || [];
+    for (var i = 0; i < cs.length; i++) {
+      out.push({platform: cs[i].platform, slug: cs[i].slug, name: cs[i].slug, live: false, following: true});
+    }
+    return out;
+  }
+  function drawChan() {
+    var h = '', it, i;
+    for (i = 0; i < chan.items.length; i++) {
+      it = chan.items[i];
+      h += '<div class="ci' + (i === chan.idx ? ' focus' : '') + '" data-i="' + i + '">' +
+        '<div class="av" style="' + img(it.avatar) + '"></div>' +
+        '<span class="nm">' + esc(it.name) + '</span>' +
+        (it.live ? '<span class="lv">● EN VIVO</span>' : '') +
+        '<span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span>' +
+        '<span class="fo' + (it.following ? ' on' : '') + '">' + (it.following ? 'Siguiendo' : 'Seguir') + '</span></div>';
+    }
+    $('chanList').innerHTML = h || '<div class="empty">Sin resultados.</div>';
+    q.className = chan.idx < 0 ? 'focus' : '';
+    var list = $('chanList'), sel = list.children[chan.idx];
+    list.scrollTop = sel ? Math.max(0, sel.offsetTop - list.offsetTop - 160) : 0;
+  }
+  function openChan() {
+    chan = {items: chanItems(), idx: -1, changed: false, timer: null, seq: 0};
+    q.value = '';
+    $('chanTitle').innerHTML = 'Tus canales';
+    $('chanMsg').innerHTML = '';
+    $('chan').style.display = 'block';
+    drawChan();
+    q.focus();  // en la TV abre su teclado en pantalla
+    try { history.pushState({chan: 1}, ''); } catch (e) { /* sin historial: Atrás por tecla sigue cerrando */ }
+  }
+  function closeChan() {
+    clearTimeout(chan.timer);
+    var changed = chan.changed;
+    chan = null;
+    q.blur();
+    $('chan').style.display = 'none';
+    if (changed) { loadHome(focusedId()); }
+  }
+  function searchChan() {
+    clearTimeout(chan.timer);
+    var text = q.value.replace(/^\s+|\s+$/g, '');
+    if (!text) {
+      chan.items = chanItems();
+      $('chanTitle').innerHTML = 'Tus canales';
+      drawChan();
+      return;
+    }
+    var seq = ++chan.seq;
+    $('chanTitle').innerHTML = 'Buscando “' + esc(text) + '”…';
+    xhr('GET', '/api/search?q=' + encodeURIComponent(text.slice(0, 40)), null, function (err, d) {
+      if (!chan || seq !== chan.seq) { return; }  // llegó tarde: ya se buscó otra cosa
+      if (err) { $('chanMsg').innerHTML = 'No se pudo buscar (' + esc(err.message) + ').'; return; }
+      chan.items = d.results;
+      $('chanTitle').innerHTML = 'Resultados de “' + esc(text) + '”';
+      $('chanMsg').innerHTML = d.errors.length ? 'No respondió: ' + esc(d.errors.join(' · ')) : '';
+      drawChan();
+    });
+  }
+  function toggleFollow(i) {
+    var it = chan.items[i], on = !it.following;
+    xhr('POST', '/api/channels', {platform: it.platform, slug: it.slug, follow: on}, function (err) {
+      if (!chan) { return; }
+      if (err) { $('chanMsg').innerHTML = 'No se pudo guardar (' + esc(err.message) + ').'; return; }
+      it.following = on;
+      chan.changed = true;
+      drawChan();
+    });
+  }
+  function chanKey(k) {
+    if (k === KEY.DOWN && chan.idx < chan.items.length - 1) {
+      chan.idx++;
+      q.blur();
+    } else if (k === KEY.UP && chan.idx >= 0) {
+      chan.idx--;
+      if (chan.idx < 0) { q.focus(); }
+    } else if (k === KEY.ENTER) {
+      if (chan.idx < 0) {
+        searchChan();
+        if (chan.items.length) { chan.idx = 0; q.blur(); }
+      } else {
+        toggleFollow(chan.idx);
+      }
+    }
+    drawChan();
+  }
+  q.oninput = function () {
+    if (!chan) { return; }
+    clearTimeout(chan.timer);
+    chan.timer = setTimeout(searchChan, 700);
+  };
+  $('chanList').onclick = function (e) {
+    var el = e.target;
+    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-i'))) { el = el.parentNode; }
+    if (chan && el && el !== this) { chan.idx = +el.getAttribute('data-i'); toggleFollow(chan.idx); }
+  };
+  $('canales').onclick = function () { if (!player && !chan && data) { openChan(); } };
+
   // ---------- teclado ----------
   document.onkeydown = function (e) {
     var k = e.keyCode;
+    if (chan && k === 8 && document.activeElement === q) { return; }  // Backspace borra en el buscador
     if (inArr(BACK, k)) {
       e.preventDefault();  // que Backspace no haga "atrás" en el navegador
-      if (player) { history.back(); }
+      if (player || chan) { history.back(); }
+      return;
+    }
+    if (chan) {
+      // en el buscador ← → mueven el cursor del texto
+      if (k === KEY.UP || k === KEY.DOWN || k === KEY.ENTER || (chan.idx >= 0 && (k === KEY.LEFT || k === KEY.RIGHT))) {
+        e.preventDefault();
+      }
+      chanKey(k);
       return;
     }
     if (k === KEY.LEFT || k === KEY.RIGHT || k === KEY.UP || k === KEY.DOWN || k === KEY.ENTER) { e.preventDefault(); }
@@ -335,7 +465,7 @@
   };
 
   // ---------- puntero (muchos navegadores de TV mueven una manito en vez de mandar teclas) ----------
-  window.onpopstate = function () { if (player) { closePlayer(); } };
+  window.onpopstate = function () { if (player) { closePlayer(); } else if (chan) { closeChan(); } };
 
   function cardOf(el) {
     while (el && el !== document.body) {
@@ -368,6 +498,7 @@
   }
   bindRow($('liveRow'));
   bindRow($('vodRow'));
+  bindRow($('discRow'));
 
   var navs = document.querySelectorAll('.nav');
   for (var n = 0; n < navs.length; n++) {

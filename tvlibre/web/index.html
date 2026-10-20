@@ -5,6 +5,7 @@
 <div id="home">
   <div id="top">
     <span id="brand">tvlibre</span>
+    <span id="canales" class="pill">🔍 Canales</span>
     <span id="brillo" class="pill"><span class="bbtn" id="bMenos">−</span> ☀ <span id="brilloVal">100</span>% <span class="bbtn" id="bMas">+</span></span>
     <span id="hora"></span>
   </div>
@@ -16,7 +17,21 @@
     <h3>Streams anteriores</h3>
     <div class="viewport"><div class="row" id="vodRow"></div><div class="nav prev" data-row="vods">‹</div><div class="nav next" data-row="vods">›</div></div>
   </div>
+  <div id="discSec">
+    <h3>También en vivo</h3>
+    <div class="viewport"><div class="row" id="discRow"></div><div class="nav prev" data-row="disc">‹</div><div class="nav next" data-row="disc">›</div></div>
+  </div>
   <div id="msg"></div>
+</div>
+<div id="chan">
+  <div id="chanBox">
+    <h3>Canales</h3>
+    <input id="q" type="text" placeholder="Buscar en Kick y Twitch…" autocomplete="off">
+    <div id="chanTitle"></div>
+    <div id="chanList"></div>
+    <div id="chanMsg"></div>
+    <div id="chanHint">↑/↓ moverse · OK seguir o dejar de seguir · Atrás volver</div>
+  </div>
 </div>
 <div id="player">
   <video id="v"></video>

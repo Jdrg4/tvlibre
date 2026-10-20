@@ -77,3 +77,30 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 #pBri { display: inline-block; min-width: 56px; text-align: center; font-size: 20px; margin-right: 10px; }
 .cbtn { display: inline-block; font-size: 20px; padding: 8px 18px; margin-right: 10px; border-radius: 22px;
   background: rgba(255,255,255,.15); }
+
+/* tercera fila: la portada sube cuando el foco baja a "También en vivo" (720 px no dan para tres filas) */
+#home { -webkit-transition: -webkit-transform .2s; transition: transform .2s; }
+#home.scrolled { -webkit-transform: translateY(-300px); transform: translateY(-300px); }
+.disc .badge { top: 10px; left: 10px; font-size: 13px; padding: 2px 8px; }
+
+/* panel de canales: buscar en Kick y Twitch, seguir y dejar de seguir */
+#chan { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; background: rgba(0,0,0,.92); display: none;
+  z-index: 5; }
+#chanBox { width: 900px; margin: 40px auto 0; }
+#chanBox h3 { margin: 0 0 16px; font-size: 30px; color: #fff; }
+#q { width: 100%; font-size: 26px; padding: 12px 18px; border-radius: 10px; border: 3px solid #333; background: #1c1c22;
+  color: #fff; }
+#q.focus { border-color: #fff; }
+#chanTitle { font-size: 18px; color: #999; margin: 18px 0 8px; }
+#chanList { max-height: 440px; overflow: hidden; }
+.ci { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; padding: 8px 14px;
+  border-radius: 10px; margin-bottom: 6px; font-size: 22px; cursor: pointer; }
+.ci.focus { background: #fff; color: #000; }
+.ci .av { width: 48px; height: 48px; border-radius: 24px; background-size: cover; background-color: #333; margin-right: 16px;
+  -webkit-flex: none; flex: none; }
+.ci .nm { -webkit-flex: 1; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci .lv { color: #e91916; font-weight: bold; font-size: 16px; margin-right: 14px; }
+.ci .fo { font-size: 18px; padding: 4px 14px; border-radius: 16px; background: #26262c; color: #fff; }
+.ci .fo.on { background: #53fc18; color: #000; }
+#chanMsg { font-size: 18px; color: #f99; margin-top: 10px; }
+#chanHint { font-size: 16px; color: #777; margin-top: 18px; }
