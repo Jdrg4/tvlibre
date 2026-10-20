@@ -29,7 +29,9 @@ sub run()
         end if
         return
     end if
-    data = ParseJson(msg.GetString())
+    data = invalid
+    body = msg.GetString()
+    if body <> "" then data = ParseJson(body)  ' un 204 llega vacío
     if data = invalid then data = {}
     m.top.result = {data: data}
 end sub

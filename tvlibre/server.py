@@ -116,6 +116,9 @@ def make_handler(app):
                     return self.file(name)
                 if path == '/api/home':
                     return self.send(200, json.dumps(app['catalog'].home()).encode(), 'application/json')
+                m = re.match(r'^/api/muted/(.+)$', path)
+                if m:
+                    return self.muted(m.group(1))
                 m = re.match(r'^/play/(.+)\.m3u8$', path)
                 if m:
                     return self.play(m.group(1), qs)
@@ -136,6 +139,23 @@ def make_handler(app):
                 return self.send(404, b'no existe')
             except Exception as e:  # proveedor o CDN caídos: mensaje corto, nunca un traceback
                 return self.send(502, ('error: %s' % str(e)[:200]).encode())
+
+        def muted(self, item_id):
+            # tramos que Twitch dejó en silencio: el reproductor los avisa para que no parezcan una falla
+            if not ITEM_RE.match(item_id):
+                return self.send(404, b'video desconocido')
+            try:
+                item = app['catalog'].item(item_id)
+            except KeyError:
+                return self.send(404, b'video desconocido')
+            ranges = []
+            if item['platform'] == 'twitch' and item['kind'] == 'vod':
+                if item_id not in app['muted']:  # no cambian: se calculan una vez
+                    master = app['providers']['twitch'].master_url(item)
+                    variant = hls.pick_variant(app['fetch'](master).decode(), master, 1080)
+                    app['muted'][item_id] = hls.muted_ranges(app['fetch'](variant).decode())
+                ranges = app['muted'][item_id]
+            return self.send(200, json.dumps({'ranges': ranges}).encode(), 'application/json')
 
         def play(self, item_id, qs):
             if not ITEM_RE.match(item_id):
@@ -188,7 +208,7 @@ def make_handler(app):
 def build(config, catalog=None, state=None, proxy=None, providers=None, fetch=net.fetch, verbose=False):
     state = state or State(config.state_path)
     providers = providers or {'twitch': twitch, 'kick': kick}
-    app = {'state': state, 'providers': providers, 'fetch': fetch, 'verbose': verbose, 'lock': threading.Lock(),
+    app = {'state': state, 'providers': providers, 'fetch': fetch, 'verbose': verbose, 'lock': threading.Lock(), 'muted': {},
            'diag_path': os.path.join(os.path.dirname(os.path.abspath(config.state_path)), 'diagnostico.jsonl'),
            'catalog': catalog or Catalog(config, providers, state),
            'proxy': proxy or Proxy(fetch=fetch)}

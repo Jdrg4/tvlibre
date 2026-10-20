@@ -51,7 +51,8 @@ class ServerTest(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         cls.state = State(os.path.join(cls.tmp, 'state.json'))
         pages = {'https://kick.cdn/m.m3u8': MASTER, 'https://tw.cdn/m.m3u8': MASTER,
-                 'https://images.kick.com/x/720.webp': b'RIFF'}
+                 'https://images.kick.com/x/720.webp': b'RIFF',
+                 'https://tw.cdn/1080/i.m3u8': b'#EXTM3U\n#EXTINF:10.0,\n0.mp4\n#EXTINF:10.0,\n1-muted.mp4\n'}
         fetch = lambda url, *a, **k: pages[url]
         cfg = Config(port=0, state_path=os.path.join(cls.tmp, 'state.json'), channels=[Channel('kick', 'ejemplo_kick')])
         cls.srv = build(cfg, catalog=FakeCatalog(), state=cls.state, proxy=Proxy(fetch=fetch), fetch=fetch,
@@ -142,6 +143,12 @@ class ServerTest(unittest.TestCase):
     def test_play_item_invalido(self):
         self.assertEqual(self.get('/play/../../etc.m3u8')[0], 404)
         self.assertEqual(self.get('/play/twitch-vod-9999.m3u8')[0], 404)
+
+    def test_tramos_silenciados(self):
+        code, _, body = self.get('/api/muted/twitch-vod-1001')
+        self.assertEqual((code, json.loads(body)), (200, {'ranges': [[10, 20]]}))
+        self.assertEqual(json.loads(self.get('/api/muted/kick-live-ejemplo_kick')[2]), {'ranges': []})
+        self.assertEqual(self.get('/api/muted/twitch-vod-9999')[0], 404)
 
     def test_h_desconocida_404(self):
         self.assertEqual(self.get('/h/0123456789abcdef.ts')[0], 404)

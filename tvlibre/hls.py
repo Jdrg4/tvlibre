@@ -58,3 +58,20 @@ def rewrite_playlist(text, base_url, link):
         if line.strip():
             out.append(link(urljoin(base_url, line.strip()), init))
     return '\n'.join(out) + '\n'
+
+
+def muted_ranges(playlist):
+    """Tramos [inicio, fin] en segundos que Twitch silenció por derechos de autor (segmentos "-muted")."""
+    out, t, dur = [], 0.0, None
+    for line in playlist.splitlines():
+        line = line.strip()
+        if line.startswith('#EXTINF:'):
+            dur = float(line[8:].split(',')[0])
+        elif line and not line.startswith('#') and dur is not None:
+            if '-muted' in line:
+                if out and out[-1][1] == t:
+                    out[-1][1] = t + dur
+                else:
+                    out.append([t, t + dur])
+            t, dur = t + dur, None
+    return [[int(a), int(b)] for a, b in out]

@@ -205,7 +205,9 @@
       $('pFill').style.width = '100%';
     } else {
       var d = isFinite(v.duration) && v.duration ? v.duration : (it.duration_s || 0);
-      $('pTime').innerHTML = hms(t) + ' / ' + hms(d) + ' · ' + quality() + 'p' + (v.paused ? ' · en pausa' : '');
+      var mu = TVL.mutedUntil(player.muted, t);
+      $('pTime').innerHTML = hms(t) + ' / ' + hms(d) + ' · ' + quality() + 'p' + (v.paused ? ' · en pausa' : '') +
+        (mu !== null ? ' · Twitch silenció este tramo hasta ' + hms(mu) : '');
       $('pFill').style.width = (d ? Math.min(100, 100 * t / d) : 0) + '%';
     }
   }
@@ -239,7 +241,13 @@
   }
 
   function openPlayer(it) {
-    player = {item: it, target: null, seekTimer: null, barTimer: null, lastKey: 0, lastCode: 0, repeat: 0, started: false};
+    player = {item: it, target: null, seekTimer: null, barTimer: null, lastKey: 0, lastCode: 0, repeat: 0, started: false,
+      muted: []};
+    if (it.platform === 'twitch' && it.kind === 'vod') {
+      xhr('GET', '/api/muted/' + encodeURIComponent(it.id), null, function (err, d) {
+        if (!err && player && player.item === it) { player.muted = d.ranges; drawBar(); }
+      });
+    }
     $('pTitle').innerHTML = esc(it.channel) + ' · ' + esc(it.title);
     $('player').style.display = 'block';
     $('home').style.display = 'none';

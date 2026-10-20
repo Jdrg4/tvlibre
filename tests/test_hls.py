@@ -62,5 +62,17 @@ class RewriteTest(unittest.TestCase):
         self.assertTrue(all(init is None for _, init in self.calls))
 
 
+
+
+class MutedRangesTest(unittest.TestCase):
+    def test_tramos_silenciados(self):
+        pl = ('#EXTM3U\n#EXT-X-MAP:URI="init-0.mp4"\n#EXTINF:10.000,\n0.mp4\n#EXTINF:10.000,\n1-muted.mp4\n'
+              '#EXTINF:10.000,\n2-muted.mp4\n#EXTINF:10.000,\n3.mp4\n#EXTINF:5.000,\n4-muted.mp4\n#EXT-X-ENDLIST\n')
+        self.assertEqual(hls.muted_ranges(pl), [[10, 30], [40, 45]])
+
+    def test_sin_silencios(self):
+        self.assertEqual(hls.muted_ranges(fixture('vod_fmp4.m3u8')), [])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -13,6 +13,13 @@
       if (len <= 0) { return 0; }
       return Math.max(0, Math.min(len - 1, col + dir * perPage));
     },
+    // Fin del tramo que Twitch silenció en el segundo t, o null si ahí hay audio.
+    mutedUntil: function (ranges, t) {
+      for (var i = 0; i < ranges.length; i++) {
+        if (t >= ranges[i][0] && t < ranges[i][1]) { return ranges[i][1]; }
+      }
+      return null;
+    },
     // Destino de un salto; si no se conoce la duración no se acota por arriba.
     seekTarget: function (base, delta, duration) {
       var t = Math.max(0, base + delta);

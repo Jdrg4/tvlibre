@@ -30,6 +30,8 @@
       color="0xFFFFFFFF" visible="false"/>
     <!-- brillo propio: un velo negro encima de todo, como en la TV -->
     <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
+    <!-- recibe las teclas del reproductor y del brillo: sin él la fila oculta se queda con el foco y OK abre otra tarjeta -->
+    <Group id="keys" focusable="true"/>
     <Timer id="refresh" duration="60" repeat="true"/>
     <Timer id="retry" duration="10"/>
     <Timer id="clockTimer" duration="30" repeat="true"/>

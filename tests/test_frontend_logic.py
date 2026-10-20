@@ -34,6 +34,11 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(run('TVL.pageCol(2, 40, 4, -1)'), 0)
         self.assertEqual(run('TVL.pageCol(0, 0, 4, 1)'), 0)
 
+    def test_tramo_silenciado(self):
+        self.assertEqual(run('TVL.mutedUntil([[100, 200], [300, 400]], 150)'), 200)
+        self.assertEqual(run('TVL.mutedUntil([[100, 200]], 200)'), None)
+        self.assertEqual(run('TVL.mutedUntil([], 50)'), None)
+
     def test_salto_sin_duracion_no_va_a_cero(self):
         self.assertEqual(run('TVL.seekTarget(600, 10, 0)'), 610)
         self.assertEqual(run('TVL.seekTarget(5000, 10, 5000)'), 4995)

@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -15,6 +15,8 @@ sub init()
 
     m.rows.observeField("rowItemSelected", "onSelect")
     m.video.observeField("state", "onVideoState")
+    m.video.observeField("position", "onPosition")
+    m.muted = []
     m.refresh.observeField("fire", "onRefresh")
     m.retry.observeField("fire", "onRetry")
     m.clockTimer.observeField("fire", "drawClock")
@@ -195,10 +197,12 @@ sub openPlayer(it as object)
     m.target = -1
     m.holdDir = 0
     m.pTitle.text = cleanText(it.channel + " · " + it.title)
+    m.muted = []
+    if it.platform = "twitch" and it.kind = "vod" then api("/api/muted/" + it.id, invalid, "onMuted")
     m.home.visible = false
     m.video.visible = true
     ' las teclas las maneja la escena: el avance nativo del Roku es muy lento en videos de horas
-    m.top.setFocus(true)
+    m.keys.setFocus(true)
     start_(resumeOf(it))
     m.resumeTimer.control = "start"
     showBar()
@@ -331,7 +335,7 @@ end sub
 
 sub onBarTimer()
     if m.item = invalid then return
-    if m.video.state = "playing" and m.target < 0 and m.holdDir = 0 then
+    if m.video.state = "playing" and m.target < 0 and m.holdDir = 0 and mutedNote(m.video.position) = "" then
         m.bar.visible = false
     else
         m.barTimer.control = "start"
@@ -349,9 +353,34 @@ sub drawBar()
     end if
     t = curTime()
     d = curDuration()
-    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused
+    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t)
     if d > 0 then m.pFill.width = 1760 * t / d else m.pFill.width = 0
 end sub
+
+sub onMuted(ev as object)
+    r = ev.getData()
+    if m.item = invalid or r.data = invalid or r.data.ranges = invalid then return
+    m.muted = r.data.ranges
+    drawBar()
+end sub
+
+' La barra se mantiene al día y aparece sola al entrar en un tramo silenciado.
+sub onPosition()
+    if m.item = invalid or m.item.kind <> "vod" then return
+    if m.bar.visible then
+        drawBar()
+    else if mutedNote(m.video.position) <> "" then
+        showBar()
+    end if
+end sub
+
+' Twitch silencia tramos con música con derechos: sin aviso parecería que se dañó el audio.
+function mutedNote(t as float) as string
+    for each rg in m.muted
+        if t >= rg[0] and t < rg[1] then return " · Twitch silenció este tramo hasta " + hms(rg[1])
+    end for
+    return ""
+end function
 
 ' Acumula el destino y salta 0,4 s después de la última tecla, como en la TV.
 sub seekBy(delta as float)
@@ -448,7 +477,7 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
     if key = "up" then
         m.onBri = true
-        m.top.setFocus(true)
+        m.keys.setFocus(true)
         setBrightness(m.brightness, false)
         return true
     end if

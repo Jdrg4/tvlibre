@@ -53,6 +53,11 @@ class RokuPackageTest(unittest.TestCase):
                         m = bad.search(fh.read())
                     self.assertIsNone(m, '%s usa %r' % (f, m and m.group(0)))
 
+    def test_foco_no_en_la_escena(self):
+        # m.top.setFocus deja el foco en la fila oculta: OK abría otra tarjeta en pleno video
+        with open(os.path.join(ROKU, 'components', 'HomeScene.brs'), encoding='utf-8') as f:
+            self.assertNotIn('m.top.setFocus', f.read())
+
     def test_manifest_images_exist(self):
         with open(os.path.join(ROKU, 'manifest'), encoding='utf-8') as f:
             for uri in re.findall(r'pkg:/(\S+)', f.read()):
