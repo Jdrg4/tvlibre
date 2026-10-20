@@ -147,9 +147,9 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 | Home | ↑ to "🔍 Canales" and OK | `*` | Search channels, follow or unfollow |
 | Home | ← → on the ☀ | ↑ from the first row, then ← → | Lower or raise brightness |
 | Player | ← → (hold: 30 s and 60 s) | ← → (hold speeds up to 5 min per step) · ⏪ ⏩ 10 min | Seek back or forward |
-| Player | OK | OK / ⏯ | Pause |
+| Player | OK | ⏯ | Pause |
 | Player | ↑ ↓ | ↑ ↓ | Raise or lower brightness |
-| Player | C, red button or "💬 Chat" | `*` | Show or hide the chat |
+| Player | C, red button or "💬 Chat" | OK | Show or hide the chat (on Roku, the system takes `*` during playback) |
 | Player | Quality button (pointer) | ↺ | Switch between 1080p and 720p |
 | Player | Back | Back | Back to home (remembers where you were) |
 

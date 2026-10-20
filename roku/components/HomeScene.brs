@@ -214,6 +214,7 @@ sub openPlayer(it as object)
     m.resumeTimer.control = "start"
     chatReset()
     m.chat.visible = m.chatOn
+    layoutVideo()
     m.chatTimer.control = "start"
     showBar()
 end sub
@@ -273,6 +274,9 @@ sub closePlayer()
     m.seekTimer.control = "stop"
     m.chatTimer.control = "stop"
     m.chat.visible = false
+    m.video.width = 1920
+    m.video.height = 1080
+    m.video.translation = [0, 0]
     m.video.control = "stop"
     m.video.content = invalid
     m.video.visible = false
@@ -359,13 +363,13 @@ sub drawBar()
     paused = ""
     if m.video.state = "paused" then paused = " · en pausa"
     if m.item.kind = "live" then
-        m.pTime.text = "EN VIVO · " + q + paused
+        m.pTime.text = "EN VIVO · " + q + paused + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
         m.pFill.width = 1760
         return
     end if
     t = curTime()
     d = curDuration()
-    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t)
+    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t) + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
     if d > 0 then m.pFill.width = 1760 * t / d else m.pFill.width = 0
 end sub
 
@@ -455,15 +459,15 @@ function playerKey(key as string, press as boolean) as boolean
     if not press then return true
     if key = "back" then
         closePlayer()
-    else if key = "OK" or key = "play" then
+    else if key = "play" then
         togglePause()
+    else if key = "OK" then
+        toggleChat()  ' el * no sirve: durante un video el Roku lo toma para su propio menú de opciones
     else if key = "fastforward" or key = "rewind" then
         if key = "fastforward" then seekBy(600) else seekBy(-600)
     else if key = "up" or key = "down" then
         if key = "up" then setBrightness(m.brightness + 10, true) else setBrightness(m.brightness - 10, true)
         showToast("Brillo " + m.brightness.ToStr() + "%")
-    else if key = "options" then
-        toggleChat()
     else if key = "replay" then
         toggleQuality()
     else
@@ -547,7 +551,7 @@ sub chatTick()
         if m.cs.until >= 0 then from = m.cs.until else from = Int(spot)
     end if
     m.chatBusy = true
-    t = api("/api/chat/" + m.item.id + "?t=" + Int(from).ToStr(), invalid, "onChat")
+    api("/api/chat/" + m.item.id + "?t=" + Int(from).ToStr(), invalid, "onChat")
     m.chatAsk = {gen: m.chatGen, id: m.item.id}
 end sub
 
@@ -578,12 +582,26 @@ sub onChat(ev as object)
     if added > 0 then drawChat()
 end sub
 
+' Con el chat visible el video ocupa 1380 px a la izquierda (16:9, centrado en alto); sin chat, la pantalla entera.
+sub layoutVideo()
+    if m.chatOn and m.item <> invalid then
+        m.video.width = 1380
+        m.video.height = 776
+        m.video.translation = [0, 152]
+    else
+        m.video.width = 1920
+        m.video.height = 1080
+        m.video.translation = [0, 0]
+    end if
+end sub
+
 sub toggleChat()
     m.chatOn = not m.chatOn
     if m.chatOn then m.reg.Write("chat", "1") else m.reg.Write("chat", "0")
     m.reg.Flush()
     chatReset()
     m.chat.visible = m.chatOn
+    layoutVideo()
     if m.chatOn then showToast("Chat visible") else showToast("Chat oculto")
 end sub
 
@@ -605,6 +623,7 @@ end sub
 
 ' ---------- teclado ----------
 function onKeyEvent(key as string, press as boolean) as boolean
+    print "tecla "; key; " "; press
     if m.panel.visible then return true  ' el panel maneja sus teclas; las que suben no tocan la portada
     if m.item <> invalid then return playerKey(key, press)
     if not press then return false

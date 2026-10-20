@@ -16,10 +16,14 @@
         rowFocusAnimationStyle="floatingFocus" vertFocusAnimationStyle="floatingFocus"/>
     </Group>
     <Video id="video" width="1920" height="1080" visible="false" enableUI="false" enableTrickPlay="false"/>
-    <Group id="chat" translation="[1340,0]" visible="false">
-      <Rectangle width="580" height="860" color="0x000000A8"/>
-      <Label id="chatText" translation="[24,30]" width="532" height="800" wrap="true" vertAlign="bottom"
-        font="font:SmallestSystemFont" color="0xEEEEEEFF"/>
+    <!-- con el chat visible el video se corre a la izquierda y el chat va en su propio panel (como el modo cine) -->
+    <Group id="chat" translation="[1380,0]" visible="false">
+      <Rectangle width="540" height="1080" color="0x18181BFF"/>
+      <Rectangle width="2" height="1080" color="0x2F2F35FF"/>
+      <Label text="Chat" translation="[32,36]" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
+      <Label text="OK  ocultar" translation="[32,44]" width="476" horizAlign="right" font="font:SmallestSystemFont" color="0x888888FF"/>
+      <Label id="chatText" translation="[32,110]" width="476" height="720" wrap="true" vertAlign="bottom" lineSpacing="8"
+        font="font:SmallestSystemFont" color="0xEFEFF1FF"/>
     </Group>
     <Label id="loading" text="Cargando…" width="1920" height="1080" horizAlign="center" vertAlign="center"
       font="font:MediumBoldSystemFont" color="0xFFFFFFFF" visible="false"/>

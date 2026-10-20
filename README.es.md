@@ -148,9 +148,9 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 | Portada | ↑ hasta "🔍 Canales" y OK | `*` | Buscar canales, seguir o dejar de seguir |
 | Portada | ← → sobre el ☀ | ↑ desde la primera fila, luego ← → | Bajar o subir el brillo |
 | Reproductor | ← → (mantener: 30 s y 60 s) | ← → (mantener acelera hasta 5 min por paso) · ⏪ ⏩ 10 min | Retroceder o adelantar |
-| Reproductor | OK | OK / ⏯ | Pausa |
+| Reproductor | OK | ⏯ | Pausa |
 | Reproductor | ↑ ↓ | ↑ ↓ | Subir o bajar el brillo |
-| Reproductor | C, botón rojo o "💬 Chat" | `*` | Mostrar u ocultar el chat |
+| Reproductor | C, botón rojo o "💬 Chat" | OK | Mostrar u ocultar el chat (en el Roku, `*` lo toma el sistema durante el video) |
 | Reproductor | Botón de calidad (puntero) | ↺ | Cambiar entre 1080p y 720p |
 | Reproductor | Atrás | Atrás | Volver a la portada (guarda dónde ibas) |
 

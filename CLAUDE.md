@@ -59,6 +59,8 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
   consola (8085) rechazan la conexión** aunque el modo desarrollador esté activo. En *Permisivo* y tras
   reiniciar, funcionan.
 - Los canales beta exigen un `.pkg` firmado, que solo genera el instalador del propio Roku: no sirven sin él.
+- **Durante un video, el `*` lo toma el Roku** para su menú de Opciones (volumen, accesibilidad): no llega al canal.
+  El chat se alterna con OK y la pausa va en ⏯.
 - Errores de compilación y de ejecución: `telnet <ip-del-roku> 8085`. Ojo con nombres de variable que son
   funciones de BrightScript (`pos`, `len`, `str`, `val`, `mid`, `tab`…): no compilan.
   `tests/test_roku.py` vigila los más comunes.
