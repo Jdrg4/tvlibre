@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer", "pmenu", "pm0", "pm1", "pm2"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -280,6 +280,7 @@ sub closePlayer()
     m.seekTimer.control = "stop"
     m.chatTimer.control = "stop"
     m.chat.visible = false
+    m.pmenu.visible = false
     m.video.width = 1920
     m.video.height = 1080
     m.video.translation = [0, 0]
@@ -369,13 +370,13 @@ sub drawBar()
     paused = ""
     if m.video.state = "paused" then paused = " · en pausa"
     if m.item.kind = "live" then
-        m.pTime.text = "EN VIVO · " + q + paused + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
+        m.pTime.text = "EN VIVO · " + q + paused + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ opciones"
         m.pFill.width = 1760
         return
     end if
     t = curTime()
     d = curDuration()
-    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t) + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ calidad"
+    m.pTime.text = hms(t) + " / " + hms(d) + " · " + q + paused + mutedNote(t) + sleepNote() + "      OK chat  ·  ⏯ pausa  ·  ↺ opciones"
     if d > 0 then m.pFill.width = 1760 * t / d else m.pFill.width = 0
 end sub
 
@@ -444,7 +445,51 @@ sub togglePause()
     showBar()
 end sub
 
+' ---------- menú del reproductor (↺) ----------
+sub drawMenu()
+    sl = "no"
+    if m.sleepAt > 0 then sl = Int((sleepLeft() + 59) / 60).ToStr() + " min"
+    if m.chatOn then ch = "visible" else ch = "oculto"
+    texts = ["Apagar en:  " + sl, "Calidad:  " + quality().ToStr() + "p", "Chat:  " + ch]
+    rows = [m.pm0, m.pm1, m.pm2]
+    for i = 0 to 2
+        if i = m.menuIdx then
+            rows[i].text = "<  " + texts[i] + "  >"
+            rows[i].color = "0xFFFFFFFF"
+        else
+            rows[i].text = "    " + texts[i]
+            rows[i].color = "0x999999FF"
+        end if
+    end for
+end sub
+
+function menuKey(key as string) as boolean
+    if key = "up" and m.menuIdx > 0 then
+        m.menuIdx = m.menuIdx - 1
+    else if key = "down" and m.menuIdx < 2 then
+        m.menuIdx = m.menuIdx + 1
+    else if key = "left" or key = "right" or key = "OK" then
+        if m.menuIdx = 0 then
+            if key = "left" then setSleep(m.sleepIdx - 1) else setSleep(m.sleepIdx + 1)
+        else if m.menuIdx = 1 then
+            toggleQuality()
+        else
+            toggleChat()
+        end if
+    else if key = "replay" or key = "back" then
+        m.pmenu.visible = false
+        showBar()
+        return true
+    end if
+    drawMenu()
+    return true
+end function
+
 function playerKey(key as string, press as boolean) as boolean
+    if m.pmenu.visible then
+        if press then menuKey(key)
+        return true
+    end if
     if key = "left" or key = "right" then
         dir = 1
         if key = "left" then dir = -1
@@ -475,7 +520,9 @@ function playerKey(key as string, press as boolean) as boolean
         if key = "up" then setBrightness(m.brightness + 10, true) else setBrightness(m.brightness - 10, true)
         showToast("Brillo " + m.brightness.ToStr() + "%")
     else if key = "replay" then
-        toggleQuality()
+        m.menuIdx = 0
+        m.pmenu.visible = true
+        drawMenu()
     else
         showBar()
     end if

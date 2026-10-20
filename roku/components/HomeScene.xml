@@ -42,6 +42,15 @@
     <ChannelsPanel id="panel" visible="false"/>
     <!-- brillo propio: un velo negro encima de todo, como en la TV -->
     <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
+    <!-- menú del reproductor (↺): temporizador, calidad y chat -->
+    <Group id="pmenu" translation="[660,300]" visible="false">
+      <Rectangle width="600" height="330" color="0x18181BF2"/>
+      <Label text="Opciones" translation="[40,28]" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
+      <Label id="pm0" translation="[40,110]" width="520" font="font:SmallSystemFont"/>
+      <Label id="pm1" translation="[40,170]" width="520" font="font:SmallSystemFont"/>
+      <Label id="pm2" translation="[40,230]" width="520" font="font:SmallSystemFont"/>
+      <Label text="↑↓ elegir · ← → cambiar · ↺ cerrar" translation="[40,290]" width="520" font="font:SmallestSystemFont" color="0x888888FF"/>
+    </Group>
     <!-- aviso del temporizador de apagado: encima del velo de brillo para que se lea aunque esté oscuro -->
     <Group id="sleepWarn" visible="false">
       <Rectangle translation="[460,420]" width="1000" height="240" color="0x18181BF0"/>

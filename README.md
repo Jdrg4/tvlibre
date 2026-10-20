@@ -150,7 +150,8 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 | Player | OK | ⏯ | Pause |
 | Player | ↑ ↓ | ↑ ↓ | Raise or lower brightness |
 | Player | C, red button or "💬 Chat" | OK | Show or hide the chat (on Roku, the system takes `*` during playback) |
-| Player | Quality button (pointer) | ↺ | Switch between 1080p and 720p |
+| Player | Quality button (pointer) | ↺ (menu) | Switch between 1080p and 720p |
+| Home and player | — | ↑↑ on home or ↺ in the player | Sleep timer: off, 5 to 120 min. It warns one minute before and any button cancels it |
 | Player | Back | Back | Back to home (remembers where you were) |
 
 On the TV the pointer works too: click cards, each row's ‹ › arrows, the brightness −/+ and the player's

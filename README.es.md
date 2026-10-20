@@ -151,7 +151,8 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 | Reproductor | OK | ⏯ | Pausa |
 | Reproductor | ↑ ↓ | ↑ ↓ | Subir o bajar el brillo |
 | Reproductor | C, botón rojo o "💬 Chat" | OK | Mostrar u ocultar el chat (en el Roku, `*` lo toma el sistema durante el video) |
-| Reproductor | Botón de calidad (puntero) | ↺ | Cambiar entre 1080p y 720p |
+| Reproductor | Botón de calidad (puntero) | ↺ (menú) | Cambiar entre 1080p y 720p |
+| Portada y reproductor | — | ↑↑ en la portada o ↺ en el reproductor | Temporizador de apagado: no, 5 a 120 min. Un minuto antes avisa y cualquier botón lo cancela |
 | Reproductor | Atrás | Atrás | Volver a la portada (guarda dónde ibas) |
 
 En la TV también funciona el puntero (la "manito"): clic en tarjetas, en las flechas ‹ › de cada fila, en
