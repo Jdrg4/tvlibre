@@ -16,6 +16,18 @@ def vod(platform, slug, n, started):
 class FakeProvider:
     def __init__(self, live, vods, error=None):
         self.live, self.vods, self.error, self.calls = live, vods, error, 0
+        self.found, self.disc, self.disc_calls = [], [], 0
+
+    def search(self, q):
+        if self.error:
+            raise self.error
+        return self.found
+
+    def discover(self, slugs, exclude, n):
+        self.disc_calls += 1
+        if self.error:
+            raise self.error
+        return [i for i in self.disc if i['channel'] not in exclude]
 
     def channel_state(self, slug, n):
         self.calls += 1
@@ -100,6 +112,65 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(self.cat.item('kick-vod-k9')['ref'], 'k9')
         with self.assertRaises(KeyError):
             self.cat.item('kick-vod-nada')
+
+    # ---------- canales editables, búsqueda y "También en vivo" ----------
+    def test_channels_cae_a_config(self):
+        self.assertEqual([(c.platform, c.slug) for c in self.cat.channels()],
+                         [('twitch', 'ejemplo_twitch'), ('kick', 'ejemplo_kick')])
+
+    def test_follow_persiste_e_invalida(self):
+        self.cat.home()
+        self.cat.follow('kick', 'otro_kick', True)
+        self.assertIn({'platform': 'kick', 'slug': 'otro_kick'}, self.state.channels())
+        self.cat.home()
+        self.assertEqual(self.tw.calls, 2)  # el caché se invalidó
+        self.cat.follow('twitch', 'ejemplo_twitch', False)
+        self.assertEqual([c.slug for c in self.cat.channels()], ['ejemplo_kick', 'otro_kick'])
+
+    def test_unfollow_ultimo_canal(self):
+        self.cat.follow('twitch', 'ejemplo_twitch', False)
+        self.cat.follow('kick', 'ejemplo_kick', False)
+        home = self.cat.home()
+        self.assertEqual((home['live'], home['vods'], home['channels'], home['discover']), ([], [], [], []))
+
+    def test_search_marca_seguidos_y_errores(self):
+        self.tw.found = [{'platform': 'twitch', 'slug': 'nuevo', 'live': False},
+                         {'platform': 'twitch', 'slug': 'ejemplo_twitch', 'live': True}]
+        self.ki.error = HttpError(500, 'https://kick.com/api/search')
+        r = self.cat.search('x')
+        self.assertEqual([(x['slug'], x['following']) for x in r['results']],
+                         [('ejemplo_twitch', True), ('nuevo', False)])  # en vivo primero
+        self.assertEqual(len(r['errors']), 1)
+        self.assertTrue(r['errors'][0].startswith('kick: '))
+
+    def test_discover_excluye_y_ordena(self):
+        def it(slug, v):
+            return {'id': 'kick-live-' + slug, 'platform': 'kick', 'kind': 'live', 'channel': slug, 'viewers': v}
+        self.ki.disc = [it('poco', 5), it('ejemplo_twitch', 99), it('mucho', 500)]
+        self.tw.disc = [{'id': 'twitch-live-ejemplo_twitch', 'platform': 'twitch', 'kind': 'live',
+                         'channel': 'ejemplo_twitch', 'viewers': 1000}]
+        disc = self.cat.home()['discover']
+        self.assertEqual([d['id'] for d in disc], ['kick-live-mucho', 'kick-live-poco'])
+
+    def test_discover_cache_5_min(self):
+        self.cat.home()
+        self.now[0] += 61
+        self.cat.home()
+        self.assertEqual(self.ki.disc_calls, 1)
+        self.now[0] += 300
+        self.cat.home()
+        self.assertEqual(self.ki.disc_calls, 2)
+
+    def test_discover_falla_silencioso(self):
+        self.ki.error = HttpError(500, 'x')
+        home = self.cat.home()
+        self.assertEqual(home['discover'], [])
+        self.assertEqual(len(home['errors']), 1)  # solo el de la portada, no uno extra por descubrir
+
+    def test_discover_reproducible(self):
+        self.ki.disc = [{'id': 'kick-live-nuevo', 'platform': 'kick', 'kind': 'live', 'channel': 'nuevo', 'viewers': 1}]
+        self.cat.home()
+        self.assertEqual(self.cat.item('kick-live-nuevo')['channel'], 'nuevo')
 
 
 if __name__ == '__main__':
