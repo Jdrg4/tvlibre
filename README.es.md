@@ -34,6 +34,9 @@ entrega a la pantalla una portada pensada para el control remoto.
 - 🟣 **Y también un canal para Roku.** La misma portada en el reproductor nativo del Roku, conectado por HDMI.
 - 🔴 **Lo que importa, arriba.** "En vivo ahora" con tus canales que estén transmitiendo, y debajo sus
   streams anteriores, mezclados por fecha.
+- 🔍 **Busca y sigue streamers desde el control.** Escribe un nombre, mira quién está en vivo en Kick y Twitch y
+  agrégalo a tu portada (o quítalo) sin tocar el servidor.
+- 🧭 **"También en vivo".** Una fila con otros directos en español de las mismas categorías que tus canales.
 - ⏯️ **Retoma donde ibas.** Los anteriores se pueden adelantar y, si los dejas a medias, siguen donde quedaste,
   en la TV o en el Roku.
 - 🔆 **Brillo propio**, por si las apps de tu TV lo fuerzan al máximo. 1080p por defecto y 720p a un botón.
@@ -91,7 +94,9 @@ sudo systemctl enable --now "tvlibre@$USER"
 
 - `slug` es el nombre del canal en su URL (`kick.com/<slug>`, `twitch.tv/<slug>`). Puedes poner varios de
   cada plataforma.
-- `state_path` es donde se guardan el brillo y los puntos de retomar, compartidos entre la TV y el Roku.
+- `state_path` es donde se guardan el brillo, los puntos de retomar y los canales que sigas desde la pantalla,
+  compartidos entre la TV y el Roku. `channels` es solo la lista inicial: una vez que sigues o dejas de seguir
+  a alguien desde la pantalla, manda la de `state_path`.
 
 ## En la TV (navegador)
 
@@ -138,6 +143,7 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 |---|---|---|---|
 | Portada | Flechas | Flechas | Moverse entre tarjetas y filas |
 | Portada | OK | OK | Abrir el directo o el anterior |
+| Portada | ↑ hasta "🔍 Canales" y OK | `*` | Buscar canales, seguir o dejar de seguir |
 | Portada | ← → sobre el ☀ | ↑ desde la primera fila, luego ← → | Bajar o subir el brillo |
 | Reproductor | ← → (mantener: 30 s y 60 s) | ← → (mantener acelera hasta 5 min por paso) · ⏪ ⏩ 10 min | Retroceder o adelantar |
 | Reproductor | OK | OK / ⏯ | Pausa |
@@ -164,6 +170,8 @@ En la TV también funciona el puntero (la "manito"): clic en tarjetas, en las fl
   y sin las etiquetas que un reproductor viejo no entiende.
 - **Anteriores de Twitch:** vienen en fMP4 y tvlibre convierte cada segmento a MPEG-TS con
   `ffmpeg -c copy`, como máximo 3 a la vez.
+- **Tramos silenciados:** Twitch quita el audio de partes de sus anteriores por derechos de autor. tvlibre los
+  detecta (segmentos `-muted`) y la barra del reproductor lo avisa, para que no parezca una falla.
 - **Roku:** el canal (BrightScript + SceneGraph) usa la misma API (`/api/home`, `/play/<id>.m3u8`) y el
   reproductor nativo del Roku.
 

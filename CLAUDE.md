@@ -18,12 +18,12 @@ En la TV: `/` es la app y `/diagnostico` muestra capacidades, teclas y pruebas d
 | Módulo | Responsabilidad |
 |---|---|
 | `tvlibre/config.py` | Carga el JSON de configuración (canales, puerto, estado) |
-| `tvlibre/providers/{twitch,kick}.py` | Consultan las APIs no oficiales: `channel_state(slug, n)`, `parse_channel(...)` puro y `master_url(item)` |
-| `tvlibre/catalog.py` | Portada: mezcla directos y anteriores, caché de 60 s, errores por plataforma |
+| `tvlibre/providers/{twitch,kick}.py` | Consultan las APIs no oficiales: `channel_state(slug, n)`, `master_url(item)`, `search(q)` y `discover(slugs, exclude, n)`, con sus `parse_*` puros |
+| `tvlibre/catalog.py` | Portada (directos, anteriores y "También en vivo", caché de 60 s y 5 min), búsqueda y seguir/dejar de seguir |
 | `tvlibre/hls.py` | Elige variante y reescribe playlists (URLs absolutas, etiquetas filtradas, `#EXT-X-MAP`) |
 | `tvlibre/proxy.py` | Sesiones de playlist con renovación de token, segmentos, LRU |
 | `tvlibre/remux.py` | Convierte fMP4 a MPEG-TS con `ffmpeg -c copy` (máximo 3 a la vez) |
-| `tvlibre/state.py` | Brillo y puntos de retomar en un JSON, con escritura atómica |
+| `tvlibre/state.py` | Brillo, canales seguidos y puntos de retomar en un JSON, con escritura atómica |
 | `tvlibre/server.py` | HTTP (`ThreadingHTTPServer`), rutas y filtro de solo red local |
 | `tvlibre/web/` | Front en ES5: `index.html`, `app.js`, `app.css` y `diagnostico.html` |
 | `roku/` | Canal de Roku (BrightScript + SceneGraph) sobre la misma API; `roku/build.py <url>` arma el zip |
@@ -62,6 +62,10 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
   funciones de BrightScript (`pos`, `len`, `str`, `val`, `mid`, `tab`…): no compilan.
   `tests/test_roku.py` vigila los más comunes.
 - La IP del servidor no va en el repo: `build.py` la escribe en el `manifest` del zip.
+- El foco del reproductor y del brillo va al nodo `keys`: con `m.top.setFocus` la fila oculta se quedaba con el
+  foco y OK abría otra tarjeta en pleno video.
+- Los anteriores de Twitch traen tramos silenciados por derechos (segmentos `-muted`, audio a -91 dB): no es un
+  fallo de la conversión; `/api/muted/<id>` los da y la barra los avisa.
 
 ## Reglas
 

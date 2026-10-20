@@ -33,6 +33,9 @@ at home talks to Kick and Twitch, adapts the video, and hands the screen a remot
 - 🟣 **Plus a Roku channel.** The same home page on the Roku's native player, plugged in over HDMI.
 - 🔴 **What matters, on top.** "Live now" with your channels that are streaming, and below them their past
   broadcasts, mixed by date.
+- 🔍 **Search and follow streamers from the remote.** Type a name, see who's live on Kick and Twitch, and add
+  them to your home page (or remove them) without touching the server.
+- 🧭 **"Also live".** A row with other Spanish-language streams from the same categories as your channels.
 - ⏯️ **Picks up where you left off.** Past broadcasts can be seeked and, if you stop halfway, they resume
   where you were, on the TV or on the Roku.
 - 🔆 **Its own brightness control**, in case your TV's apps force it to the max. 1080p by default, 720p one
@@ -91,7 +94,9 @@ Just trying it out? Copy `config.example.json` to `config.local.json`, put real 
 
 - `slug` is the channel name in its URL (`kick.com/<slug>`, `twitch.tv/<slug>`). You can add several per
   platform.
-- `state_path` is where brightness and resume points are stored, shared by the TV and the Roku.
+- `state_path` is where brightness, resume points and the channels you follow from the screen are stored, shared
+  by the TV and the Roku. `channels` is only the starting list: once you follow or unfollow someone from the
+  screen, the list in `state_path` wins.
 
 ## On the TV (browser)
 
@@ -137,6 +142,7 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 |---|---|---|---|
 | Home | Arrows | Arrows | Move between cards and rows |
 | Home | OK | OK | Open the live stream or past broadcast |
+| Home | ↑ to "🔍 Canales" and OK | `*` | Search channels, follow or unfollow |
 | Home | ← → on the ☀ | ↑ from the first row, then ← → | Lower or raise brightness |
 | Player | ← → (hold: 30 s and 60 s) | ← → (hold speeds up to 5 min per step) · ⏪ ⏩ 10 min | Seek back or forward |
 | Player | OK | OK / ⏯ | Pause |
@@ -163,6 +169,8 @@ buttons.
   URLs and without the tags an old player doesn't understand.
 - **Twitch past broadcasts:** come as fMP4, and tvlibre remuxes each segment to MPEG-TS with
   `ffmpeg -c copy`, at most 3 at a time.
+- **Muted stretches:** Twitch strips the audio from parts of its past broadcasts for copyright. tvlibre detects
+  them (`-muted` segments) and the player bar says so, so it doesn't look like a bug.
 - **Roku:** the channel (BrightScript + SceneGraph) uses the same API (`/api/home`, `/play/<id>.m3u8`) and
   the Roku's native player.
 
