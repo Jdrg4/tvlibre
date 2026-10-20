@@ -47,6 +47,9 @@ class FakeProvider:
     def master_url(self, item):
         return self.url
 
+    def chat(self, item, t):
+        return {'messages': [{'t': t}], 'until': (t + 30) if item['kind'] == 'vod' else None}
+
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *a, **k):
@@ -181,6 +184,12 @@ class ServerTest(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as cm:
                 self.post('/api/channels', bad)
             self.assertEqual(cm.exception.code, 400, bad)
+
+    def test_chat(self):
+        code, _, body = self.get('/api/chat/twitch-vod-1001?t=90.7')
+        self.assertEqual((code, json.loads(body)), (200, {'messages': [{'t': 90}], 'until': 120}))
+        self.assertEqual(json.loads(self.get('/api/chat/kick-live-ejemplo_kick?t=x')[2])['messages'], [{'t': 0}])
+        self.assertEqual(self.get('/api/chat/twitch-vod-9999')[0], 404)
 
     def test_h_desconocida_404(self):
         self.assertEqual(self.get('/h/0123456789abcdef.ts')[0], 404)

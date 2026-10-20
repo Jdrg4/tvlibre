@@ -123,6 +123,20 @@ def make_handler(app):
                     if not 0 < len(q) <= 40:
                         return self.send(400, b'busqueda de 1 a 40 caracteres')
                     return self.send(200, json.dumps(app['catalog'].search(q)).encode(), 'application/json')
+                m = re.match(r'^/api/chat/(.+)$', path)
+                if m:
+                    if not ITEM_RE.match(m.group(1)):
+                        return self.send(404, b'video desconocido')
+                    try:
+                        item = app['catalog'].item(m.group(1))
+                    except KeyError:
+                        return self.send(404, b'video desconocido')
+                    try:
+                        t = max(0, int(float((qs.get('t') or ['0'])[0])))
+                    except (ValueError, OverflowError):
+                        t = 0
+                    body = app['providers'][item['platform']].chat(item, t)
+                    return self.send(200, json.dumps(body).encode(), 'application/json')
                 m = re.match(r'^/api/muted/(.+)$', path)
                 if m:
                     return self.muted(m.group(1))
