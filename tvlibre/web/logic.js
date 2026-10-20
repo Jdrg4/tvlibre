@@ -13,6 +13,40 @@
       if (len <= 0) { return 0; }
       return Math.max(0, Math.min(len - 1, col + dir * perPage));
     },
+    // ---------- chat: en vivo se agrega lo nuevo; en un anterior cada mensaje sale cuando el video llega a su segundo ----------
+    chatReset: function () { return {shown: [], buf: [], ids: {}, until: -1, last: -1}; },
+    _chatKeep: function (s) { if (s.shown.length > 40) { s.shown = s.shown.slice(s.shown.length - 40); } },
+    chatAddLive: function (s, msgs) {
+      var n = 0;
+      for (var i = 0; i < msgs.length; i++) {
+        if (!s.ids[msgs[i].id]) { s.ids[msgs[i].id] = 1; s.shown.push(msgs[i]); n++; }
+      }
+      TVL._chatKeep(s);
+      return n;
+    },
+    chatAddVod: function (s, resp) {
+      for (var i = 0; i < resp.messages.length; i++) {
+        var m = resp.messages[i];
+        if (!s.ids[m.id]) { s.ids[m.id] = 1; s.buf.push(m); }
+      }
+      s.until = Math.max(s.until, resp.until);
+    },
+    // Pasa a pantalla los mensajes cuyo segundo ya llegó; devuelve cuántos.
+    chatDue: function (s, pos) {
+      var n = 0, rest = [];
+      for (var i = 0; i < s.buf.length; i++) {
+        if (s.buf[i].at <= pos) { s.shown.push(s.buf[i]); n++; } else { rest.push(s.buf[i]); }
+      }
+      s.buf = rest;
+      s.last = pos;
+      TVL._chatKeep(s);
+      return n;
+    },
+    chatNeedsFetch: function (s, pos) { return s.until < 0 || pos + 8 >= s.until; },
+    // Un salto hacia atrás o muy adelante deja el chat de otra hora: hay que reiniciarlo.
+    chatJump: function (s, pos) {
+      return (s.last >= 0 && pos < s.last - 3) || (s.until >= 0 && pos > s.until + 40);
+    },
     // Fin del tramo que Twitch silenció en el segundo t, o null si ahí hay audio.
     mutedUntil: function (ranges, t) {
       for (var i = 0; i < ranges.length; i++) {

@@ -257,9 +257,60 @@
     v.play();
   }
 
+  // ---------- chat de solo lectura: columna a la derecha que se muestra u oculta ----------
+  var CHAT_KEYS = [67, 403];  // C y el botón rojo del control
+  var COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+  var chatOn = store('tvl_chat') !== '0';
+
+  function drawChat() {
+    var h = '', s = player.chat.shown, i, m;
+    for (i = Math.max(0, s.length - 18); i < s.length; i++) {
+      m = s[i];
+      h += '<div class="cl"><b style="color:' + (COLOR_RE.test(m.color || '') ? m.color : '#9aa0ff') + '">' +
+        esc(m.user) + '</b> ' + esc(m.text) + '</div>';
+    }
+    $('chatList').innerHTML = h;
+  }
+  function chatTick() {
+    if (!player || !chatOn || player.chatBusy) { return; }
+    var it = player.item, st = player.chat, pos;
+    if (it.kind === 'live') {
+      if (++player.chatN % 3) { return; }  // en vivo, cada 3 s
+    } else {
+      if (!player.started) { return; }
+      pos = player.target != null ? player.target : v.currentTime;
+      if (TVL.chatJump(st, pos)) { st = player.chat = TVL.chatReset(); drawChat(); }
+      if (TVL.chatDue(st, pos)) { drawChat(); }
+      if (!TVL.chatNeedsFetch(st, pos)) { return; }
+    }
+    player.chatBusy = true;
+    var from = it.kind === 'live' ? 0 : Math.floor(st.until >= 0 ? st.until : pos);
+    xhr('GET', '/api/chat/' + encodeURIComponent(it.id) + '?t=' + from, null, function (err, d) {
+      if (!player || player.item !== it) { return; }
+      player.chatBusy = false;
+      if (err) { return; }  // el chat nunca molesta al video: se reintenta en el siguiente ciclo
+      if (it.kind === 'live') {
+        if (TVL.chatAddLive(player.chat, d.messages)) { drawChat(); }
+      } else if (player.chat === st) {
+        TVL.chatAddVod(st, d);
+      }
+    });
+  }
+  function toggleChat() {
+    chatOn = !chatOn;
+    store('tvl_chat', chatOn ? '1' : '0');
+    $('chat').style.display = chatOn ? 'block' : 'none';
+    player.chat = TVL.chatReset();
+    drawChat();
+    showBar();
+  }
+
   function openPlayer(it) {
     player = {item: it, target: null, seekTimer: null, barTimer: null, lastKey: 0, lastCode: 0, repeat: 0, started: false,
-      muted: []};
+      muted: [], chat: TVL.chatReset(), chatN: 0, chatBusy: false};
+    $('chat').style.display = chatOn ? 'block' : 'none';
+    $('chatList').innerHTML = '';
+    player.chatTimer = setInterval(chatTick, 1000);
     if (it.platform === 'twitch' && it.kind === 'vod') {
       xhr('GET', '/api/muted/' + encodeURIComponent(it.id), null, function (err, d) {
         if (!err && player && player.item === it) { player.muted = d.ranges; drawBar(); }
@@ -277,6 +328,7 @@
   function closePlayer() {
     saveResume();
     clearInterval(player.resumeTimer);
+    clearInterval(player.chatTimer);
     clearTimeout(player.seekTimer);
     clearTimeout(player.barTimer);
     var id = player.item.id;
@@ -334,6 +386,8 @@
     } else if (k === KEY.UP || k === KEY.DOWN) {
       setBrightness(brightness + (k === KEY.UP ? 10 : -10), true);
       showBar();
+    } else if (inArr(CHAT_KEYS, k)) {
+      toggleChat();
     } else {
       showBar();
     }
@@ -523,7 +577,7 @@
       if (!player) { return; }
       var a = this.getAttribute('data-a');
       if (e && e.stopPropagation) { e.stopPropagation(); }
-      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else if (a === 'b-' || a === 'b+') { setBrightness(brightness + (a === 'b+' ? 10 : -10), true); showBar(); } else { seekBy(+a); showBar(); }
+      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else if (a === 'chat') { toggleChat(); } else if (a === 'b-' || a === 'b+') { setBrightness(brightness + (a === 'b+' ? 10 : -10), true); showBar(); } else { seekBy(+a); showBar(); }
     };
   }
 

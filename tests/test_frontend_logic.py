@@ -34,6 +34,27 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(run('TVL.pageCol(2, 40, 4, -1)'), 0)
         self.assertEqual(run('TVL.pageCol(0, 0, 4, 1)'), 0)
 
+    def test_chat_en_vivo_sin_repetidos(self):
+        r = run('(function(){var s=TVL.chatReset(); TVL.chatAddLive(s,[{id:"a"},{id:"b"}]);'
+                'var n=TVL.chatAddLive(s,[{id:"b"},{id:"c"}]); return [n, s.shown.map(function(m){return m.id;})];})()')
+        self.assertEqual(r, [1, ['a', 'b', 'c']])
+
+    def test_chat_anterior_sale_a_su_segundo(self):
+        r = run('(function(){var s=TVL.chatReset(); TVL.chatAddVod(s,{messages:[{id:"a",at:10},{id:"b",at:20}],until:25});'
+                'var n1=TVL.chatDue(s,15); var n2=TVL.chatDue(s,21);'
+                'return [n1,n2,s.shown.map(function(m){return m.id;}),s.until,TVL.chatNeedsFetch(s,10),TVL.chatNeedsFetch(s,18)];})()')
+        self.assertEqual(r, [1, 1, ['a', 'b'], 25, False, True])
+
+    def test_chat_salto_reinicia(self):
+        r = run('(function(){var s=TVL.chatReset(); TVL.chatAddVod(s,{messages:[],until:130}); TVL.chatDue(s,100);'
+                'return [TVL.chatJump(s,101), TVL.chatJump(s,50), TVL.chatJump(s,4000)];})()')
+        self.assertEqual(r, [False, True, True])
+
+    def test_chat_tope_de_lineas(self):
+        r = run('(function(){var s=TVL.chatReset(), a=[]; for(var i=0;i<60;i++){a.push({id:"m"+i});}'
+                'TVL.chatAddLive(s,a); return [s.shown.length, s.shown[0].id];})()')
+        self.assertEqual(r, [40, 'm20'])
+
     def test_tramo_silenciado(self):
         self.assertEqual(run('TVL.mutedUntil([[100, 200], [300, 400]], 150)'), 200)
         self.assertEqual(run('TVL.mutedUntil([[100, 200]], 200)'), None)

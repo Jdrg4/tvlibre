@@ -104,3 +104,10 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .ci .fo.on { background: #53fc18; color: #000; }
 #chanMsg { font-size: 18px; color: #f99; margin-top: 10px; }
 #chanHint { font-size: 16px; color: #777; margin-top: 18px; }
+
+/* chat de solo lectura, encima del video a la derecha */
+#chat { position: absolute; right: 0; top: 0; bottom: 0; width: 380px; background: rgba(0,0,0,.55); display: none;
+  overflow: hidden; }
+#chatList { position: absolute; left: 0; right: 0; bottom: 150px; padding: 0 16px; }
+.cl { font-size: 18px; line-height: 24px; color: #eee; margin-top: 6px; word-wrap: break-word; }
+.cl b { font-weight: bold; }
