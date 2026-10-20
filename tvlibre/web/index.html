@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>tvlibre</title>
+<link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<div id="home">
+  <div id="top">
+    <span id="brand">tvlibre</span>
+    <span id="brillo" class="pill"><span class="bbtn" id="bMenos">−</span> ☀ <span id="brilloVal">100</span>% <span class="bbtn" id="bMas">+</span></span>
+    <span id="hora"></span>
+  </div>
+  <div id="liveSec">
+    <h3>En vivo ahora</h3>
+    <div class="viewport"><div class="row" id="liveRow"></div><div class="nav prev" data-row="live">‹</div><div class="nav next" data-row="live">›</div></div>
+  </div>
+  <div id="vodSec">
+    <h3>Streams anteriores</h3>
+    <div class="viewport"><div class="row" id="vodRow"></div><div class="nav prev" data-row="vods">‹</div><div class="nav next" data-row="vods">›</div></div>
+  </div>
+  <div id="msg"></div>
+</div>
+<div id="player">
+  <video id="v"></video>
+  <div id="loading">Cargando…</div>
+  <div id="perr"></div>
+  <div id="bar">
+    <div id="pTitle"></div>
+    <div id="pTrack"><div id="pFill"></div></div>
+    <div id="pInfo"><span id="pTime"></span><span id="pHint">←/→ adelantar · OK pausa · ↑/↓ calidad · Atrás salir</span></div>
+    <div id="ctrls"><span class="cbtn" data-a="back">⟵ Volver</span><span class="cbtn" data-a="-60">−1 min</span><span class="cbtn" data-a="-10">−10 s</span><span class="cbtn" data-a="pause">⏯ Pausa</span><span class="cbtn" data-a="10">+10 s</span><span class="cbtn" data-a="60">+1 min</span><span class="cbtn" data-a="q">Calidad</span></div>
+  </div>
+</div>
+<div id="dim"></div>
+<script src="/static/logic.js"></script>
+<script src="/static/app.js"></script>
+</body></html>

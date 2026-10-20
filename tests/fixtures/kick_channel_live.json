@@ -1,0 +1,17 @@
+{
+ "slug": "ejemplo_kick",
+ "user": {
+  "username": "ejemplo_kick"
+ },
+ "playback_url": "https://abc.us-west-2.playback.live-video.net/api/video/v1/ejemplo.m3u8",
+ "livestream": {
+  "id": 9000,
+  "is_live": true,
+  "session_title": "En vivo de ejemplo",
+  "viewer_count": 7284,
+  "start_time": "2026-10-20 00:45:54",
+  "thumbnail": {
+   "url": "https://images.kick.com/video_thumbnails/ejemplo/live/720.webp"
+  }
+ }
+}

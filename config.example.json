@@ -1,0 +1,10 @@
+{
+  "port": 8099,
+  "state_path": "state.json",
+  "vods_per_channel": 20,
+  "default_quality": 1080,
+  "channels": [
+    {"platform": "kick", "slug": "ejemplo_kick"},
+    {"platform": "twitch", "slug": "ejemplo_twitch"}
+  ]
+}

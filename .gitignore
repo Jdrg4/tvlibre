@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+state.json
+state.json.tmp
+diagnostico.jsonl
+config.local.json
+CLAUDE.local.md
+.claude/settings.local.json
+docs/superpowers/
+.superpowers/

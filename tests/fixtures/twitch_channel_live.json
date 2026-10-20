@@ -1,0 +1,49 @@
+{
+ "data": {
+  "user": {
+   "displayName": "ejemplo_twitch",
+   "stream": {
+    "id": "5000",
+    "title": "Título de ejemplo en vivo",
+    "viewersCount": 49413,
+    "createdAt": "2026-10-19T23:08:24Z",
+    "previewImageURL": "https://static-cdn.jtvnw.net/previews-ttv/live_user_ejemplo_twitch-640x360.jpg"
+   },
+   "videos": {
+    "edges": [
+     {
+      "node": {
+       "id": "1001",
+       "title": "Stream anterior 1",
+       "lengthSeconds": 9784,
+       "createdAt": "2026-10-19T23:08:31Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1001/thumb-640x360.jpg"
+      }
+     },
+     {
+      "node": {
+       "id": "1002",
+       "title": "Stream anterior 2",
+       "lengthSeconds": 34620,
+       "createdAt": "2026-10-17T23:20:44Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1002/thumb-640x360.jpg"
+      }
+     },
+     {
+      "node": {
+       "id": "1003",
+       "title": "Stream anterior 3",
+       "lengthSeconds": 26480,
+       "createdAt": "2026-10-16T23:19:39Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1003/thumb-640x360.jpg"
+      }
+     }
+    ]
+   }
+  }
+ },
+ "extensions": {
+  "durationMilliseconds": 30,
+  "requestID": "01M5BG3GKQTNAA6WBVHGZ89E39"
+ }
+}

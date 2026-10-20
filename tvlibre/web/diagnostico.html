@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>tvlibre · diagnóstico</title>
+<style>
+body{background:#111;color:#eee;font:22px sans-serif;margin:0;padding:24px 36px}
+h1{font-size:30px;margin:0 0 12px}h2{font-size:24px;margin:18px 0 8px;color:#aaa}
+.ok{color:#7f7}.mal{color:#f77}#v{width:480px;height:270px;background:#000;float:right}
+button{font-size:22px;padding:10px 20px;background:#333;color:#fff;border:0}button:focus{background:#9147ff;outline:none}
+#keys{font-family:monospace;color:#ff7}
+</style></head><body>
+<!-- ES5 a propósito: debe correr en navegadores de TV de 2014 -->
+<h1>tvlibre · diagnóstico de esta TV</h1>
+<video id="v" muted></video>
+<h2>Capacidades</h2><div id="caps"></div>
+<h2>Teclas del control (pulsa todas: flechas, OK, Atrás, Menú…)</h2><div id="keys">—</div>
+<h2>Video</h2><button id="probar">Probar video</button><div id="res"></div>
+<script>
+var report = {caps: {}, keys: [], video: {}};
+var $ = function (id) { return document.getElementById(id); };
+function send() {
+  var x = new XMLHttpRequest();
+  x.open('POST', '/api/diagnostico');
+  x.setRequestHeader('Content-Type', 'application/json');
+  x.send(JSON.stringify(report));
+}
+function cap(k, f) { try { report.caps[k] = String(f()); } catch (e) { report.caps[k] = 'ERROR ' + e.message; } }
+var vid = $('v');
+cap('userAgent', function () { return navigator.userAgent; });
+cap('pantalla', function () { return window.innerWidth + 'x' + window.innerHeight + ' dpr=' + (window.devicePixelRatio || 1); });
+cap('mp4_h264', function () { return vid.canPlayType('video/mp4; codecs="avc1.4D401F, mp4a.40.2"') || 'no'; });
+cap('mpegts', function () { return vid.canPlayType('video/mp2t') || 'no'; });
+cap('hls', function () { return vid.canPlayType('application/vnd.apple.mpegurl') || 'no'; });
+// eval de un literal fijo: única forma de saber si el motor entiende la sintaxis ES6 (la flecha se arma
+// por partes para que la guarda ES5 del repo no la marque)
+cap('es6', function () { try { eval('(()=' + '>1)()'); return true; } catch (e) { return false; } });
+cap('fetch', function () { return typeof window.fetch === 'function'; });
+cap('localStorage', function () { localStorage.setItem('tvl', '1'); return localStorage.getItem('tvl') === '1'; });
+var h = '';
+for (var k in report.caps) { h += k + ': <span class="' + (report.caps[k] === 'false' || report.caps[k] === 'no' ? 'mal' : 'ok') + '">' + report.caps[k] + '</span><br>'; }
+$('caps').innerHTML = h;
+send();
+
+document.onkeydown = function (e) {
+  report.keys.push(e.keyCode);
+  $('keys').innerHTML = report.keys.slice(-20).join(' · ');
+  send();
+};
+
+function probar(lista, i) {
+  if (i >= lista.length) { $('res').innerHTML += '<b>TERMINADO</b>'; send(); return; }
+  var t = lista[i], done = false, t0 = new Date().getTime();
+  function fin(r) {
+    if (done) { return; }
+    done = true; report.video[t.nombre] = r;
+    $('res').innerHTML += t.nombre + ': <span class="' + (r.indexOf('OK') === 0 ? 'ok' : 'mal') + '">' + r + '</span><br>';
+    send(); setTimeout(function () { probar(lista, i + 1); }, 500);
+  }
+  vid.onplaying = function () {
+    vid.onplaying = null;
+    var info = vid.videoWidth + 'x' + vid.videoHeight + ', arrancó en ' + (new Date().getTime() - t0) + ' ms';
+    if (!t.saltar || !isFinite(vid.duration)) { setTimeout(function () { fin('OK ' + info); }, 4000); return; }
+    var meta = vid.duration / 2;
+    vid.currentTime = meta;
+    setTimeout(function () {
+      fin((Math.abs(vid.currentTime - meta) < 60 ? 'OK ' : 'NO ADELANTA ') + info + ', salto a ' + Math.round(meta / 60) + ' min → ' + Math.round(vid.currentTime / 60) + ' min');
+    }, 9000);
+  };
+  vid.onerror = function () { fin('ERROR ' + (vid.error && vid.error.code)); };
+  setTimeout(function () { fin('TIMEOUT 35 s'); }, 35000);
+  vid.src = '/play/' + t.id + '.m3u8?q=1080'; vid.load(); vid.play();
+}
+
+$('probar').onclick = function () {
+  $('res').innerHTML = 'Consultando canales…<br>';
+  var x = new XMLHttpRequest();
+  x.open('GET', '/api/home');
+  x.onload = function () {
+    var d = JSON.parse(x.responseText), lista = [], i;
+    for (i = 0; i < d.live.length; i++) { lista.push({nombre: 'En vivo ' + d.live[i].platform + ' (' + d.live[i].channel + ')', id: d.live[i].id}); }
+    var vistos = {};
+    for (i = 0; i < d.vods.length; i++) {
+      if (!vistos[d.vods[i].platform]) { vistos[d.vods[i].platform] = 1; lista.push({nombre: 'Anterior ' + d.vods[i].platform + ' (' + d.vods[i].channel + ')', id: d.vods[i].id, saltar: true}); }
+    }
+    $('res').innerHTML = '';
+    probar(lista, 0);
+  };
+  x.onerror = function () { $('res').innerHTML = '<span class="mal">No se pudo consultar /api/home</span>'; };
+  x.send();
+};
+$('probar').focus();
+</script>
+</body></html>

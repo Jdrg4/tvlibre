@@ -1,0 +1,78 @@
+/* Diseñado para 1280x720 y navegadores de TV de 2014: flexbox sí, grid no. */
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #0e0e10; color: #eee;
+  font-family: sans-serif; }
+
+#top { height: 64px; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center;
+  padding: 0 40px; font-size: 22px; color: #aaa; }
+#brand { color: #fff; font-size: 26px; font-weight: bold; margin-right: auto; -webkit-flex: 1; flex: 1; }
+.pill { padding: 6px 16px; border-radius: 20px; margin-right: 24px; }
+.pill.focus { background: #fff; color: #000; }
+
+h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; }
+.viewport { overflow: hidden; padding: 6px 40px 10px; }
+.row { display: -webkit-flex; display: flex; -webkit-transition: -webkit-transform .2s; transition: transform .2s; }
+
+.card { -webkit-flex: none; flex: none; position: relative; border-radius: 10px; }
+.card.focus { box-shadow: 0 0 0 5px #fff; }
+.kick { background: #13311a; }
+.twitch { background: #22143d; }
+
+.live { width: 560px; height: 230px; margin-right: 30px; overflow: hidden; background-size: cover;
+  background-position: center; }
+.live .shade { position: absolute; left: 0; right: 0; bottom: 0; top: 0; padding: 20px;
+  background: -webkit-linear-gradient(top, rgba(0,0,0,0) 30%, rgba(0,0,0,.85));
+  display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column;
+  -webkit-justify-content: flex-end; justify-content: flex-end; }
+.live .n { font-size: 28px; font-weight: bold; }
+.live .t { font-size: 18px; color: #ddd; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { position: absolute; top: 16px; left: 16px; background: #e91916; color: #fff; font-size: 16px;
+  padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+
+.plat { font-size: 14px; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 6px; font-weight: bold; }
+.plat.kick { background: #53fc18; color: #000; }
+.plat.twitch { background: #9147ff; color: #fff; }
+
+.vod { width: 270px; margin-right: 22px; }
+.vod .th { height: 152px; border-radius: 8px; position: relative; overflow: hidden; background-size: cover;
+  background-position: center; }
+.vod.focus { box-shadow: none; }
+.vod.focus .th { box-shadow: 0 0 0 5px #fff; }
+.dur { position: absolute; right: 8px; bottom: 10px; background: rgba(0,0,0,.8); font-size: 14px; padding: 2px 6px; border-radius: 3px; }
+.prog { position: absolute; left: 0; bottom: 0; height: 5px; background: #e91916; }
+.vod .t { font-size: 16px; margin-top: 8px; color: #ddd; height: 40px; overflow: hidden; line-height: 20px; }
+.vod .m { font-size: 14px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#msg { position: absolute; left: 40px; bottom: 16px; font-size: 16px; color: #f99; }
+.empty { font-size: 20px; color: #888; padding: 40px 0; }
+
+#player { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; background: #000; display: none; }
+#v { width: 1280px; height: 720px; background: #000; }
+#loading, #perr { position: absolute; left: 0; right: 0; top: 330px; text-align: center; font-size: 28px; }
+#perr { color: #f99; display: none; }
+#bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 40px 28px;
+  background: -webkit-linear-gradient(top, rgba(0,0,0,0), rgba(0,0,0,.85)); }
+#bar.hidden { display: none; }
+#pTitle { font-size: 24px; margin-bottom: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pTrack { height: 6px; background: rgba(255,255,255,.25); border-radius: 3px; }
+#pFill { height: 6px; background: #e91916; border-radius: 3px; width: 0; }
+#pInfo { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between;
+  font-size: 18px; margin-top: 10px; color: #ccc; }
+
+/* brillo propio: capa negra encima de todo (más barato para el chip que un filter sobre el video) */
+#dim { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; background: #000; opacity: 0;
+  pointer-events: none; z-index: 10; }
+
+/* puntero: el control de muchas TVs mueve una manito en vez de mandar teclas */
+.card, .nav, .bbtn, .cbtn { cursor: pointer; }
+.viewport { position: relative; }
+.nav { position: absolute; top: 6px; bottom: 10px; width: 48px; font-size: 48px; line-height: 1; color: #fff;
+  background: rgba(14,14,16,.75); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center;
+  -webkit-justify-content: center; justify-content: center; z-index: 2; }
+.nav.prev { left: 0; }
+.nav.next { right: 0; }
+.nav:hover, .bbtn:hover, .cbtn:hover { background: #9147ff; color: #fff; }
+.bbtn { display: inline-block; width: 34px; text-align: center; border-radius: 17px; background: #26262c; color: #fff; }
+#ctrls { margin-top: 14px; }
+.cbtn { display: inline-block; font-size: 20px; padding: 8px 18px; margin-right: 10px; border-radius: 22px;
+  background: rgba(255,255,255,.15); }

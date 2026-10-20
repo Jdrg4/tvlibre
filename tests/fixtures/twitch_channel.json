@@ -1,0 +1,43 @@
+{
+ "data": {
+  "user": {
+   "displayName": "ejemplo_twitch",
+   "stream": null,
+   "videos": {
+    "edges": [
+     {
+      "node": {
+       "id": "1001",
+       "title": "Stream anterior 1",
+       "lengthSeconds": 31470,
+       "createdAt": "2026-10-19T16:00:24Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1001/thumb-640x360.jpg"
+      }
+     },
+     {
+      "node": {
+       "id": "1002",
+       "title": "Stream anterior 2",
+       "lengthSeconds": 32020,
+       "createdAt": "2026-10-15T15:55:22Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1002/thumb-640x360.jpg"
+      }
+     },
+     {
+      "node": {
+       "id": "1003",
+       "title": "Stream anterior 3",
+       "lengthSeconds": 22290,
+       "createdAt": "2026-10-14T15:03:36Z",
+       "previewThumbnailURL": "https://static-cdn.jtvnw.net/cf_vods/x/1003/thumb-640x360.jpg"
+      }
+     }
+    ]
+   }
+  }
+ },
+ "extensions": {
+  "durationMilliseconds": 31,
+  "requestID": "01M5BG3G6Z86A0GTMKPX1F9Z3W"
+ }
+}

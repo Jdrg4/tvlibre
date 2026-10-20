@@ -1,0 +1,8 @@
+{
+ "slug": "ejemplo_kick",
+ "user": {
+  "username": "ejemplo_kick"
+ },
+ "playback_url": "https://abc.us-west-2.playback.live-video.net/api/video/v1/ejemplo.m3u8",
+ "livestream": null
+}

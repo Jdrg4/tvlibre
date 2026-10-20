@@ -1,0 +1,62 @@
+[
+ {
+  "id": 9000,
+  "is_live": true,
+  "duration": 0,
+  "start_time": "2026-10-20 00:45:54",
+  "created_at": "2026-10-20 00:45:58",
+  "session_title": "En vivo de ejemplo",
+  "source": "https://stream.kick.com/abc/ivs/v1/1/ejemplo/0/media/hls/master.m3u8",
+  "thumbnail": {
+   "src": "https://images.kick.com/video_thumbnails/ejemplo/0/720.webp"
+  },
+  "video": {
+   "uuid": "00000000-0000-4000-8000-000000000000"
+  }
+ },
+ {
+  "id": 9001,
+  "is_live": false,
+  "duration": 21083000,
+  "start_time": "2026-10-19 00:10:01",
+  "created_at": "2026-10-19 00:10:04",
+  "session_title": "Stream anterior 1",
+  "source": "https://stream.kick.com/abc/ivs/v1/1/ejemplo/1/media/hls/master.m3u8",
+  "thumbnail": {
+   "src": "https://images.kick.com/video_thumbnails/ejemplo/1/720.webp"
+  },
+  "video": {
+   "uuid": "00000000-0000-4000-8000-000000000001"
+  }
+ },
+ {
+  "id": 9002,
+  "is_live": false,
+  "duration": 17996000,
+  "start_time": "2026-10-17 00:26:17",
+  "created_at": "2026-10-17 00:26:21",
+  "session_title": "Stream anterior 2",
+  "source": "https://stream.kick.com/abc/ivs/v1/1/ejemplo/2/media/hls/master.m3u8",
+  "thumbnail": {
+   "src": "https://images.kick.com/video_thumbnails/ejemplo/2/720.webp"
+  },
+  "video": {
+   "uuid": "00000000-0000-4000-8000-000000000002"
+  }
+ },
+ {
+  "id": 9003,
+  "is_live": false,
+  "duration": 10206000,
+  "start_time": "2026-10-16 01:32:36",
+  "created_at": "2026-10-16 01:32:40",
+  "session_title": "Stream anterior 3",
+  "source": "https://stream.kick.com/abc/ivs/v1/1/ejemplo/3/media/hls/master.m3u8",
+  "thumbnail": {
+   "src": "https://images.kick.com/video_thumbnails/ejemplo/3/720.webp"
+  },
+  "video": {
+   "uuid": "00000000-0000-4000-8000-000000000003"
+  }
+ }
+]
