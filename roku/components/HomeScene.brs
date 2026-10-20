@@ -626,7 +626,6 @@ end sub
 
 ' ---------- teclado ----------
 function onKeyEvent(key as string, press as boolean) as boolean
-    print "tecla "; key; " "; press
     if m.panel.visible then return true  ' el panel maneja sus teclas; las que suben no tocan la portada
     if m.item <> invalid then return playerKey(key, press)
     if not press then return false
