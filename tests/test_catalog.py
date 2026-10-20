@@ -149,6 +149,11 @@ class CatalogTest(unittest.TestCase):
         self.ki.found = [{'platform': 'kick', 'slug': 'k%d' % i, 'live': i == 1} for i in range(2)]
         self.assertEqual([x['slug'] for x in self.cat.search('x')['results']], ['k1', 't0', 'k0', 't1', 't2'])
 
+    def test_search_exacto_primero(self):
+        self.tw.found = [{'platform': 'twitch', 'slug': 'otro_en_vivo', 'name': 'Otro', 'live': True},
+                         {'platform': 'twitch', 'slug': 'buscado', 'name': 'Buscado', 'live': False}]
+        self.assertEqual([x['slug'] for x in self.cat.search(' BUSCADO ')['results']], ['buscado', 'otro_en_vivo'])
+
     def test_discover_excluye_y_ordena(self):
         def it(slug, v):
             return {'id': 'kick-live-' + slug, 'platform': 'kick', 'kind': 'live', 'channel': slug, 'viewers': v}

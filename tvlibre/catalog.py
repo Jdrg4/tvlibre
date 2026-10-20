@@ -63,7 +63,9 @@ class Catalog:
             per.append([dict(x, following=(x['platform'], x['slug']) in following) for x in r])
         # se alternan las plataformas: si no, los 8 de una tapaban al canal real de la otra
         results = [lst[i] for i in range(max(map(len, per), default=0)) for lst in per if i < len(lst)]
-        results.sort(key=lambda x: not x.get('live'))  # en vivo primero; sort es estable
+        want = q.strip().lower()
+        # primero el canal que se escribió tal cual, luego los que están en vivo; sort es estable
+        results.sort(key=lambda x: (x['slug'] != want and (x.get('name') or '').lower() != want, not x.get('live')))
         return {'results': results, 'errors': errors}
 
     # ---------- portada ----------
