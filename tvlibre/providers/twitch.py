@@ -1,4 +1,5 @@
 """Twitch vía su GQL público (API no oficial: puede cambiar sin aviso)."""
+import json
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -62,3 +63,67 @@ def master_url(item):
         raise ValueError('Twitch no entregó acceso a %s' % item['id'])
     return 'https://usher.ttvnw.net/%s?%s' % (path, urlencode(
         {'sig': t['signature'], 'token': t['value'], 'allow_source': 'true'}))
+
+
+SEARCH_QUERY = ('query($q:String!){searchFor(userQuery:$q,platform:"web"){channels{edges{item{...on User{login '
+                'displayName profileImageURL(width:150) stream{viewersCount}}}}}}}')
+STREAMS_QUERY = ('query($g:String!,$n:Int!){game(name:$g){name streams(first:$n,options:{languages:["es"]}){edges{node{'
+                 'broadcaster{login displayName} title viewersCount createdAt previewImageURL(width:640,height:360)}}}}}')
+
+
+def parse_search(gql):
+    out = []
+    edges = ((((gql.get('data') or {}).get('searchFor') or {}).get('channels') or {}).get('edges')) or []
+    for e in edges:
+        u = e.get('item') or {}
+        if not u.get('login'):
+            continue  # la búsqueda también devuelve cosas que no son canales
+        s = u.get('stream')
+        out.append({'platform': 'twitch', 'slug': u['login'], 'name': u.get('displayName') or u['login'],
+                    'avatar': u.get('profileImageURL'), 'live': bool(s), 'viewers': s.get('viewersCount') if s else None})
+    return out[:8]
+
+
+def search(q):
+    return parse_search(net.fetch_json(GQL, {'query': SEARCH_QUERY, 'variables': {'q': q}}, HEADERS))
+
+
+def parse_streams(gql, exclude):
+    game = (gql.get('data') or {}).get('game') or {}
+    out = []
+    for e in ((game.get('streams') or {}).get('edges')) or []:
+        n = e['node']
+        login = (n.get('broadcaster') or {}).get('login')
+        if not login or login in exclude:
+            continue
+        out.append({'id': 'twitch-live-' + login, 'platform': 'twitch', 'kind': 'live', 'channel': login,
+                    'title': n.get('title') or '', 'started_at': n.get('createdAt'), 'duration_s': None,
+                    'viewers': n.get('viewersCount'), 'thumb': n.get('previewImageURL'), 'ref': login,
+                    'category': game.get('name')})
+    return out
+
+
+def _games(slugs):
+    # una sola consulta con un alias por canal: el juego del directo o, si no está en vivo, el del último
+    parts = ['u%d:user(login:%s){stream{game{name}} lastBroadcast{game{name}}}' % (i, json.dumps(s))
+             for i, s in enumerate(slugs)]
+    data = net.fetch_json(GQL, {'query': '{%s}' % ' '.join(parts)}, HEADERS).get('data') or {}
+    games = []
+    for i in range(len(slugs)):
+        u = data.get('u%d' % i) or {}
+        g = (((u.get('stream') or {}).get('game')) or ((u.get('lastBroadcast') or {}).get('game')) or {}).get('name')
+        if g and g not in games:
+            games.append(g)
+    return games
+
+
+def discover(slugs, exclude, n):
+    """Directos en español de los juegos de tus canales."""
+    out, seen = [], set()
+    for g in _games(slugs) if slugs else []:
+        gql = net.fetch_json(GQL, {'query': STREAMS_QUERY, 'variables': {'g': g, 'n': n}}, HEADERS)
+        for it in parse_streams(gql, exclude):
+            if it['id'] not in seen:
+                seen.add(it['id'])
+                out.append(it)
+    return out
