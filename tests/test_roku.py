@@ -58,6 +58,12 @@ class RokuPackageTest(unittest.TestCase):
         with open(os.path.join(ROKU, 'components', 'HomeScene.brs'), encoding='utf-8') as f:
             self.assertNotIn('m.top.setFocus', f.read())
 
+    def test_panel_se_reabre(self):
+        # sin alwaysNotify, reabrir el panel con los mismos canales no llamaba a open(): quedaba sin foco y trabado
+        panel = components()['ChannelsPanel.xml']
+        field = [f for f in panel.iter('field') if f.get('id') == 'channels'][0]
+        self.assertEqual(field.get('alwaysNotify'), 'true')
+
     def test_manifest_images_exist(self):
         with open(os.path.join(ROKU, 'manifest'), encoding='utf-8') as f:
             for uri in re.findall(r'pkg:/(\S+)', f.read()):

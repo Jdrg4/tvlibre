@@ -121,9 +121,12 @@ sub render()
         end for
         m.msg.text = "No se pudo consultar: " + txt
     else if root.getChildCount() = 0 then
-        m.msg.text = "No hay directos ni streams anteriores."
+        m.msg.text = "No sigues ningún canal con algo para ver. Pulsa * para buscar y agregar canales."
     end if
-    if root.getChildCount() = 0 then return
+    if root.getChildCount() = 0 then
+        m.rows.content = root  ' sin esto quedaban las tarjetas viejas y OK pedía un video que ya no existe
+        return
+    end if
     m.rows.rowItemSize = sizes
     m.rows.rowHeights = heights
     m.rows.content = root

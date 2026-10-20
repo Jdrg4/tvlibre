@@ -2,7 +2,7 @@
 <!-- Panel "Canales": buscar en Kick y Twitch, seguir y dejar de seguir. Se abre con * en la portada. -->
 <component name="ChannelsPanel" extends="Group">
   <interface>
-    <field id="channels" type="array" onChange="open"/>
+    <field id="channels" type="array" onChange="open" alwaysNotify="true"/>
     <field id="changed" type="boolean"/>
     <field id="closed" type="boolean" alwaysNotify="true"/>
   </interface>

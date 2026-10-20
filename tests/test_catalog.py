@@ -50,7 +50,8 @@ class CatalogTest(unittest.TestCase):
         self.ki = FakeProvider(None, [vod('kick', 'ejemplo_kick', 'k1', '2026-10-17T10:00:00Z'),
                                       vod('kick', 'ejemplo_kick', 'k2', '2026-10-12T10:00:00Z')])
         self.now = [1000.0]
-        self.cat = Catalog(self.cfg, {'twitch': self.tw, 'kick': self.ki}, self.state, clock=lambda: self.now[0])
+        self.cat = Catalog(self.cfg, {'twitch': self.tw, 'kick': self.ki}, self.state, clock=lambda: self.now[0],
+                           spawn=lambda f: f())  # descubrir síncrono en los tests
 
     def test_mezcla_por_fecha(self):
         ids = [v['id'] for v in self.cat.home()['vods']]
@@ -171,6 +172,19 @@ class CatalogTest(unittest.TestCase):
         self.now[0] += 300
         self.cat.home()
         self.assertEqual(self.ki.disc_calls, 2)
+
+    def test_discover_no_bloquea_la_portada(self):
+        # descubrir hace muchas peticiones en serie: corre aparte y la portada usa lo último que haya
+        pending = []
+        cat = Catalog(self.cfg, {'twitch': self.tw, 'kick': self.ki}, self.state, clock=lambda: self.now[0],
+                      spawn=pending.append)
+        self.ki.disc = [{'id': 'kick-live-nuevo', 'platform': 'kick', 'kind': 'live', 'channel': 'nuevo', 'viewers': 1}]
+        self.assertEqual(cat.home()['discover'], [])
+        self.assertEqual(self.ki.disc_calls, 0)
+        cat.home()
+        self.assertEqual(len(pending), 1)  # no lanza otra búsqueda mientras la primera sigue
+        pending.pop()()
+        self.assertEqual([d['id'] for d in cat.home()['discover']], ['kick-live-nuevo'])
 
     def test_discover_falla_silencioso(self):
         self.ki.error = HttpError(500, 'x')

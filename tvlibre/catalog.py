@@ -7,29 +7,35 @@ from tvlibre.config import Channel
 
 DISCOVER_TTL = 300
 DISCOVER_MAX = 16
+DISCOVER_TIMEOUT = 60
+
+
+def _thread(fn):
+    threading.Thread(target=fn, daemon=True).start()
 
 
 class Catalog:
-    def __init__(self, config, providers, state, clock=time.time, ttl=60, timeout=8):
+    def __init__(self, config, providers, state, clock=time.time, ttl=60, timeout=8, spawn=_thread):
         self.config, self.providers, self.state = config, providers, state
-        self.clock, self.ttl, self.timeout = clock, ttl, timeout
+        self.clock, self.ttl, self.timeout, self.spawn = clock, ttl, timeout, spawn
         self._lock = threading.Lock()
         self._cache, self._at, self._items = None, None, {}
-        self._disc, self._disc_at = None, None
+        self._disc, self._disc_at, self._disc_gen, self._disc_busy = None, None, 0, False
 
-    def _run(self, fns):
+    def _run(self, fns, timeout=None):
         """Corre en paralelo y con tope: una plataforma colgada no puede pasar el timeout de la TV (30 s).
         Devuelve el resultado de cada función o la excepción que dio."""
         if not fns:
             return []
         pool = ThreadPoolExecutor(max_workers=len(fns))
         futures = [pool.submit(f) for f in fns]
-        wait(futures, timeout=self.timeout)
+        timeout = timeout or self.timeout
+        wait(futures, timeout=timeout)
         pool.shutdown(wait=False)
         out = []
         for fut in futures:
             if not fut.done():
-                out.append(TimeoutError('no respondió en %d s' % self.timeout))
+                out.append(TimeoutError('no respondió en %d s' % timeout))
                 continue
             try:
                 out.append(fut.result())
@@ -51,6 +57,7 @@ class Catalog:
                 rest.append(Channel(platform, slug))
             self.state.set_channels([{'platform': c.platform, 'slug': c.slug} for c in rest])
             self._cache = self._disc = None
+            self._disc_gen += 1  # una búsqueda de descubrir en curso ya no vale: excluye otros canales
 
     def search(self, q):
         following = {(c.platform, c.slug) for c in self.channels()}
@@ -87,20 +94,30 @@ class Catalog:
         return {'live': live, 'vods': vods, 'errors': errors}
 
     def _discover(self):
-        # ponytail: síncrono dentro de la portada cada 5 min (hasta `timeout` s más); a un hilo si se nota lento
-        if self._disc is not None and self.clock() - self._disc_at < DISCOVER_TTL:
-            return self._disc
-        chans = self.channels()
-        exclude = {c.slug for c in chans}
-        by = {}
-        for c in chans:
-            by.setdefault(c.platform, []).append(c.slug)
-        plats = list(by)
-        res = self._run([lambda p=p: self.providers[p].discover(by[p], exclude, 12) for p in plats])
-        items = [i for r in res if not isinstance(r, Exception) for i in r]  # descubrir es opcional: sin error visible
-        items.sort(key=lambda i: i.get('viewers') or 0, reverse=True)
-        self._disc, self._disc_at = items, self.clock()
-        return items
+        """Lo último que haya de "También en vivo". Si caducó, se renueva aparte: son muchas peticiones en serie
+        y no pueden frenar la portada ni tener tomado el lock."""
+        stale = self._disc is None or self.clock() - self._disc_at >= DISCOVER_TTL
+        if stale and not self._disc_busy:
+            self._disc_busy = True
+            self.spawn(self._refresh_discover)
+        return self._disc or []
+
+    def _refresh_discover(self):
+        gen, chans = self._disc_gen, self.channels()
+        try:
+            exclude = {c.slug for c in chans}
+            by = {}
+            for c in chans:
+                by.setdefault(c.platform, []).append(c.slug)
+            plats = list(by)
+            res = self._run([lambda p=p: self.providers[p].discover(by[p], exclude, 12) for p in plats],
+                            DISCOVER_TIMEOUT)
+            items = [i for r in res if not isinstance(r, Exception) for i in r]  # opcional: sin error visible
+            items.sort(key=lambda i: i.get('viewers') or 0, reverse=True)
+            if gen == self._disc_gen:
+                self._disc, self._disc_at = items, self.clock()
+        finally:
+            self._disc_busy = False
 
     def home(self, force=False):
         with self._lock:

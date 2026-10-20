@@ -101,8 +101,9 @@ end sub
 sub toggle(i as integer)
     if i >= m.items.count() then return
     it = m.items[i]
-    m.pending = i
-    request("/api/channels", {platform: it.platform, slug: it.slug, follow: not it.following}, "onSaved")
+    ' se guarda el canal y el valor pedido: invertir al responder fallaba con dos OK seguidos o una búsqueda nueva
+    m.pending = {item: it, follow: not it.following}
+    request("/api/channels", {platform: it.platform, slug: it.slug, follow: m.pending.follow}, "onSaved")
 end sub
 
 sub onSaved(ev as object)
@@ -111,10 +112,10 @@ sub onSaved(ev as object)
         m.msg.text = "No se pudo guardar (" + r.error + ")."
         return
     end if
-    m.items[m.pending].following = not m.items[m.pending].following
+    m.pending.item.following = m.pending.follow
     m.top.changed = true
     m.msg.text = ""
-    draw(m.pending + 1)
+    draw(m.list.itemFocused)
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean

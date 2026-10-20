@@ -446,7 +446,8 @@
   // ---------- teclado ----------
   document.onkeydown = function (e) {
     var k = e.keyCode;
-    if (chan && k === 8 && document.activeElement === q) { return; }  // Backspace borra en el buscador
+    // Backspace borra en el buscador; vacío, es Atrás (el control de algunas TVs manda 8 como Atrás)
+    if (chan && k === 8 && document.activeElement === q && q.value !== '') { return; }
     if (inArr(BACK, k)) {
       e.preventDefault();  // que Backspace no haga "atrás" en el navegador
       if (player || chan) { history.back(); }
