@@ -15,8 +15,7 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 
 .card { -webkit-flex: none; flex: none; position: relative; border-radius: 10px; }
 .card.focus { box-shadow: 0 0 0 5px #fff; }
-.kick { background: #13311a; }
-.twitch { background: #22143d; }
+.live, .vod .th { background-color: #22143d; }
 
 .live { width: 560px; height: 230px; margin-right: 30px; overflow: hidden; background-size: cover;
   background-position: center; }
@@ -29,10 +28,6 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .badge { position: absolute; top: 16px; left: 16px; background: #e91916; color: #fff; font-size: 16px;
   padding: 4px 10px; border-radius: 4px; font-weight: bold; }
 
-.plat { font-size: 14px; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 6px; font-weight: bold; }
-.plat.kick { background: #53fc18; color: #000; }
-.plat.twitch { background: #9147ff; color: #fff; }
-
 .vod { width: 270px; margin-right: 22px; }
 .vod .th { height: 152px; border-radius: 8px; position: relative; overflow: hidden; background-size: cover;
   background-position: center; }
@@ -42,8 +37,23 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .prog { position: absolute; left: 0; bottom: 0; height: 5px; background: #e91916; }
 .vod .t { font-size: 16px; margin-top: 8px; color: #ddd; height: 40px; overflow: hidden; line-height: 20px; }
 .vod .m { font-size: 14px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vod .m b { color: #ddd; }
 
-#msg { position: absolute; left: 40px; bottom: 16px; font-size: 16px; color: #f99; }
+#msg { position: absolute; left: 40px; right: 40px; bottom: 12px; font-size: 16px; color: #f99; z-index: 4;
+  text-shadow: 0 1px 2px #000; }
+#hint { font-size: 15px; color: #666; margin: 6px 40px 40px; }
+
+/* cabecera de la página de un canal */
+#chHead { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; padding: 4px 40px 0; }
+#chAv { width: 84px; height: 84px; border-radius: 42px; background-color: #333; background-size: cover;
+  -webkit-flex: none; flex: none; margin-right: 22px; }
+#chInfo { -webkit-flex: 1; flex: 1; min-width: 0; }
+#chName { font-size: 32px; font-weight: bold; color: #fff; }
+#chMeta { font-size: 18px; color: #aaa; margin-top: 2px; }
+#chDesc { font-size: 15px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#chFollow { font-size: 22px; background: #9147ff; color: #fff; margin: 0 0 0 20px; -webkit-flex: none; flex: none; }
+#chFollow.on { background: #26262c; color: #ddd; }
+#chFollow.focus { background: #fff; color: #000; }
 .empty { font-size: 20px; color: #888; padding: 40px 0; }
 
 #player { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; background: #000; display: none; }
@@ -78,12 +88,11 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .cbtn { display: inline-block; font-size: 20px; padding: 8px 18px; margin-right: 10px; border-radius: 22px;
   background: rgba(255,255,255,.15); }
 
-/* tercera fila: la portada sube cuando el foco baja a "También en vivo" (720 px no dan para tres filas) */
+/* 720 px no dan para todas las filas: la página sube según la fila enfocada (app.js, scrollHome) */
 #home { -webkit-transition: -webkit-transform .2s; transition: transform .2s; }
-#home.scrolled { -webkit-transform: translateY(-300px); transform: translateY(-300px); }
 .disc .badge { top: 10px; left: 10px; font-size: 13px; padding: 2px 8px; }
 
-/* panel de canales: buscar en Kick y Twitch, seguir y dejar de seguir */
+/* buscar canal: cualquier streamer de Twitch */
 #chan { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; background: rgba(0,0,0,.92); display: none;
   z-index: 5; }
 #chanBox { width: 900px; margin: 40px auto 0; }
@@ -99,9 +108,11 @@ h3 { margin: 14px 40px 10px; font-size: 22px; color: #ddd; font-weight: normal; 
 .ci .av { width: 48px; height: 48px; border-radius: 24px; background-size: cover; background-color: #333; margin-right: 16px;
   -webkit-flex: none; flex: none; }
 .ci .nm { -webkit-flex: 1; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci .sub { font-size: 15px; color: #888; margin-left: 14px; }
+.ci.focus .sub { color: #555; }
 .ci .lv { color: #e91916; font-weight: bold; font-size: 16px; margin-right: 14px; }
-.ci .fo { font-size: 18px; padding: 4px 14px; border-radius: 16px; background: #26262c; color: #fff; }
-.ci .fo.on { background: #53fc18; color: #000; }
+.ci .fo { font-size: 18px; padding: 4px 14px; border-radius: 16px; background: #9147ff; color: #fff; }
+.ci .fo.on { background: #26262c; color: #ddd; }
 #chanMsg { font-size: 18px; color: #f99; margin-top: 10px; }
 #chanHint { font-size: 16px; color: #777; margin-top: 18px; }
 

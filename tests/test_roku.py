@@ -81,6 +81,37 @@ class RokuPackageTest(unittest.TestCase):
         self.assertIn('tvlibre_server=http://10.0.0.5:8099\n', manifest)
         self.assertEqual(manifest.count('tvlibre_server='), 1)
 
+    def test_iconos_con_el_tamano_de_cada_clave(self):
+        # con ui_resolutions=fhd la portada del Roku usa el icono FHD: sin él, el canal salía sin icono
+        import struct
+        sizes = {'mm_icon_focus_fhd': (540, 405), 'mm_icon_focus_hd': (290, 218), 'mm_icon_focus_sd': (214, 144),
+                 'splash_screen_fhd': (1920, 1080), 'splash_screen_hd': (1280, 720)}
+        with open(os.path.join(ROKU, 'manifest'), encoding='utf-8') as f:
+            keys = dict(re.findall(r'(?m)^(\w+)=pkg:/(\S+)$', f.read()))
+        self.assertEqual(set(keys), set(sizes))
+        for key, uri in keys.items():
+            with open(os.path.join(ROKU, uri), 'rb') as f:
+                head = f.read(24)
+            self.assertEqual(head[:8], b'\x89PNG\r\n\x1a\n', uri)
+            self.assertEqual(struct.unpack('>II', head[16:24]), sizes[key], uri)
+
+    def test_build_cambia_la_version(self):
+        # el Roku guarda el icono según la versión: con la misma seguía mostrando el de su caché
+        self.assertNotEqual(roku_build.build_number(1000 * 60), roku_build.build_number(1001 * 60))
+        with tempfile.TemporaryDirectory() as tmp:
+            with zipfile.ZipFile(roku_build.build('http://10.0.0.5:8099', os.path.join(tmp, 'c.zip'))) as z:
+                manifest = z.read('manifest').decode()
+                png = z.read('images/icon_fhd.png')
+        self.assertIn('build_version=%d\n' % roku_build.build_number(), manifest)
+        self.assertEqual(png[:4], b'\x89PNG')
+
+    def test_sin_kick(self):
+        for d, _, fs in os.walk(ROKU):
+            for f in fs:
+                if f.endswith(('.brs', '.xml')) or f == 'manifest':
+                    with open(os.path.join(d, f), encoding='utf-8') as fh:
+                        self.assertNotIn('kick', fh.read().lower(), f)
+
     def test_build_rejects_bad_server(self):
         for bad in ('192.168.1.10:8099', 'https://x/y', 'http://x/play'):
             with self.assertRaises(ValueError):

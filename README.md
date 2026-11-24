@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="tvlibre — Kick and Twitch on the TV that no longer gets apps" width="100%">
+  <img src="docs/assets/banner.svg" alt="tvlibre — Twitch on the TV that no longer gets apps" width="100%">
 </p>
 
 <p align="center">
@@ -16,10 +16,10 @@
 
 ---
 
-**tvlibre turns your old Smart TV, or your Roku, into an app to watch Kick and Twitch.**
-Many TVs ship a system that no longer gets apps: no Kick, no Twitch, no way to install them. But their
+**tvlibre turns your old Smart TV, or your Roku, into an app to watch Twitch: any streamer, live or past
+broadcasts.** Many TVs ship a system that no longer gets apps: no Twitch, no way to install it. But their
 built-in browser still plays video, and a Roku accepts your own channels. tvlibre uses both: a small server
-at home talks to Kick and Twitch, adapts the video, and hands the screen a remote-friendly home page.
+at home talks to Twitch, adapts the video, and hands the screen a remote-friendly home page.
 
 > [!WARNING]
 > **Home network only.** tvlibre rejects any request that doesn't come from a private IP, but still
@@ -33,9 +33,11 @@ at home talks to Kick and Twitch, adapts the video, and hands the screen a remot
 - 🟣 **Plus a Roku channel.** The same home page on the Roku's native player, plugged in over HDMI.
 - 🔴 **What matters, on top.** "Live now" with your channels that are streaming, and below them their past
   broadcasts, mixed by date.
-- 🔍 **Search and follow streamers from the remote.** Type a name, see who's live on Kick and Twitch, and add
-  them to your home page (or remove them) without touching the server.
-- 🧭 **"Also live".** A row with other Spanish-language streams from the same categories as your channels.
+- 🔍 **Watch any streamer.** Type a few letters ("illo", "alexby", "auron") and the real channel comes first,
+  ranked by followers. OK opens its page: live stream, past broadcasts and highlights, no need to follow it.
+  Follow it with one button and it joins your home page.
+- 🔥 **"Top live now".** The most-watched streams on all of Twitch in your language, plus "Also live" with
+  streams from the same games as your channels. From any card, one button opens that streamer's page.
 - 💬 **Chat next to the video**, live and also on past broadcasts, synced to the second you're watching.
   Read-only, shown or hidden with one button.
 - ⏯️ **Picks up where you left off.** Past broadcasts can be seeked and, if you stop halfway, they resume
@@ -50,13 +52,12 @@ at home talks to Kick and Twitch, adapts the video, and hands the screen a remot
 flowchart LR
     TV["📺 TV browser"] -- HTTP --> S["tvlibre<br/>(server on your LAN)"]
     R["🟣 Roku channel"] -- HTTP --> S
-    S -- HTTPS --> K["Kick"]
     S -- HTTPS --> T["Twitch"]
     S -. "fMP4 → MPEG-TS (ffmpeg -c copy)" .-> S
 ```
 
 1. **Install the server** on an always-on machine in your home (a Linux box, a NAS, a Raspberry Pi).
-2. **Add your channels** from Kick and Twitch to its config.
+2. **Add your channels** to its config, or leave it empty and search and follow them from the screen.
 3. **Open it on the screen:** in the TV's browser, or install the channel on your Roku.
 
 ## Quick start: the server
@@ -87,15 +88,18 @@ Just trying it out? Copy `config.example.json` to `config.local.json`, put real 
   "state_path": "/var/lib/tvlibre/state.json",
   "vods_per_channel": 20,
   "default_quality": 1080,
+  "language": "es",
   "channels": [
-    {"platform": "kick", "slug": "channel_name"},
-    {"platform": "twitch", "slug": "channel_name"}
+    {"platform": "twitch", "slug": "illojuan"},
+    {"platform": "twitch", "slug": "rubius"}
   ]
 }
 ```
 
-- `slug` is the channel name in its URL (`kick.com/<slug>`, `twitch.tv/<slug>`). You can add several per
-  platform.
+- `slug` is the channel name in its URL (`twitch.tv/<slug>`). The list can be empty.
+- `language` (two letters: `es`, `en`, `pt`…) picks the language of "Top live now" and "Also live".
+- Kick support was removed: `kick` entries in an old config are skipped with a warning, they don't stop the
+  server.
 - `state_path` is where brightness, resume points and the channels you follow from the screen are stored, shared
   by the TV and the Roku. `channels` is only the starting list: once you follow or unfollow someone from the
   screen, the list in `state_path` wins.
@@ -144,13 +148,17 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 |---|---|---|---|
 | Home | Arrows | Arrows | Move between cards and rows |
 | Home | OK | OK | Open the live stream or past broadcast |
-| Home | ↑ to "🔍 Canales" and OK | `*` | Search channels, follow or unfollow |
+| Home | ↑ to "🔍 Buscar canal" and OK | `*` | Search any streamer: OK opens their page, → follows or unfollows |
+| Home | Green button or G | ⏯ | Open the focused card's channel page |
+| Channel page | ↑ to "+ Seguir" and OK | ↑ from the first row and OK | Follow or unfollow |
+| Channel page | Back | Back | Back to home |
 | Home | ← → on the ☀ | ↑ from the first row, then ← → | Lower or raise brightness |
 | Player | ← → (hold: 30 s and 60 s) | ← → (hold speeds up to 5 min per step) · ⏪ ⏩ 10 min | Seek back or forward |
 | Player | OK | ⏯ | Pause |
 | Player | ↑ ↓ | ↑ ↓ | Raise or lower brightness |
 | Player | C, red button or "💬 Chat" | OK | Show or hide the chat (on Roku, the system takes `*` during playback) |
 | Player | Quality button (pointer) | ↺ (menu) | Switch between 1080p and 720p |
+| Player | Green button, G or "📺 Canal" | ↺ (menu) → "Ir al canal" | Leave the video for that streamer's page |
 | Home and player | — | ↑↑ on home or ↺ in the player | Sleep timer: off, 5 to 120 min. It warns one minute before and any button cancels it |
 | Player | Back | Back | Back to home (remembers where you were) |
 
@@ -164,32 +172,37 @@ buttons.
 | **Private IPs only** | Any request not coming from 10/8, 172.16/12, 192.168/16, loopback or 100.64/10 (Tailscale) is rejected. |
 | **By IP only** | tvlibre only answers when reached as `http://192.168.x.x:8099/` or `localhost`, never through a domain name, so no website open in another browser at home can use it (DNS rebinding). |
 | **JSON writes** | `POST`s require `Content-Type: application/json`, which forces a CORS preflight the server never answers. |
-| **Known image hosts** | The thumbnail proxy only fetches from Kick's and Twitch's CDNs. |
+| **Known image hosts** | The thumbnail proxy only fetches from Twitch's CDN (and Twemoji for chat emojis). |
 
 ## Under the hood
 
-- **Kick live:** the screen fetches it straight from Kick's CDN, without loading the server.
-- **Twitch live and past broadcasts:** go through tvlibre, which rewrites every HLS playlist with absolute
+- **Any channel, any video:** `/api/channel/<login>` builds a streamer's page, and a `/play/<id>` for a
+  video that never showed up on screen (another channel, or after a server restart) is looked up on Twitch by
+  its id.
+- **Search:** one GQL query runs Twitch's general search and its name-prefix search, merged and ranked by
+  followers (the exact name goes first only if it's a real channel with an audience).
+- **Live and past broadcasts:** go through tvlibre, which rewrites every HLS playlist with absolute
   URLs and without the tags an old player doesn't understand.
 - **Twitch past broadcasts:** come as fMP4, and tvlibre remuxes each segment to MPEG-TS with
   `ffmpeg -c copy`, at most 3 at a time.
-- **Chat:** live, Kick's comes from its messages API and Twitch's from its public IRC, anonymously; the
-  connection closes by itself when nobody is watching. On past broadcasts it is fetched by the video's second.
+- **Chat:** live, it comes from Twitch's public IRC, anonymously; the connection closes by itself when nobody
+  is watching. On past broadcasts it is fetched by the video's second.
 - **Muted stretches:** Twitch strips the audio from parts of its past broadcasts for copyright. tvlibre detects
   them (`-muted` segments) and the player bar says so, so it doesn't look like a bug.
-- **Roku:** the channel (BrightScript + SceneGraph) uses the same API (`/api/home`, `/play/<id>.m3u8`) and
-  the Roku's native player.
+- **Roku:** the channel (BrightScript + SceneGraph) uses the same API (`/api/home`, `/api/channel/<login>`,
+  `/play/<id>.m3u8`) and the Roku's native player. `build.py` writes a new `build_version` on every build:
+  the Roku caches the channel icon per version.
 
 ## Disclaimer
 
-tvlibre uses Kick's and Twitch's **unofficial public APIs**, the same ones their websites use, so it can
-break if they change. It is not affiliated with Kick, Twitch, Roku or any TV maker. It's for personal use:
+tvlibre uses Twitch's **unofficial public API**, the same one its website uses, so it can break if it
+changes. It is not affiliated with Twitch, Roku or any TV maker. It's for personal use:
 there's no login, so subscriber-only content doesn't show up, and it does not strip the ads the platforms
 put in the stream.
 
 ## Known limitations
 
-- A `/play/<id>` link with an unknown id forces a home refresh: it is not rate-limited.
+- A `/play/<id>` link with an id tvlibre hasn't seen asks Twitch for it: it is not rate-limited.
 - The Roku channel needs developer mode: it isn't in the channel store.
 
 ## Contributing

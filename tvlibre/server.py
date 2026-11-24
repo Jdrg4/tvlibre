@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from tvlibre import hls, net
 from tvlibre.catalog import Catalog
 from tvlibre.config import PLATFORMS
-from tvlibre.providers import kick, twitch
+from tvlibre.providers import twitch
 from tvlibre.proxy import Proxy
 from tvlibre.state import State
 
@@ -20,9 +20,9 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 LAN = [ipaddress.ip_network(n) for n in
        ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', '100.64.0.0/10', '::1/128')]
 ITEM_RE = re.compile(r'^[a-z0-9_-]+$')
-SLUG_RE = re.compile(r'^[a-z0-9_-]{1,40}$')
+SLUG_RE = re.compile(r'^[a-z0-9_]{1,25}$')  # login de Twitch
 STATIC_RE = re.compile(r'^[A-Za-z0-9_-]+\.(html|js|css|png|svg|ico)$')
-IMG_HOSTS = ('jtvnw.net', 'kick.com', 'live-video.net')
+IMG_HOSTS = ('jtvnw.net',)
 TWEMOJI_PATH = '/gh/jdecked/twemoji@'
 DIAG_MAX = 5 * 1024 * 1024
 TYPES = {'html': 'text/html; charset=utf-8', 'js': 'application/javascript; charset=utf-8',
@@ -67,7 +67,7 @@ def _img_allowed(url):
 
 
 def _img_type(body, url):
-    # por los primeros bytes: los emotes de Kick van en una URL sin extensión (.../fullsize) y son GIF
+    # por los primeros bytes: los emotes animados son GIF y la extensión de la URL no siempre lo dice
     if body[:4] == b'GIF8':
         return 'image/gif'
     if body[:4] == b'\x89PNG':
@@ -139,6 +139,16 @@ def make_handler(app):
                     if not 0 < len(q) <= 40:
                         return self.send(400, b'busqueda de 1 a 40 caracteres')
                     return self.send(200, json.dumps(app['catalog'].search(q)).encode(), 'application/json')
+                m = re.match(r'^/api/channel/(.+)$', path)
+                if m:
+                    slug = m.group(1).lower()
+                    if not SLUG_RE.match(slug):
+                        return self.send(404, b'canal desconocido')
+                    try:
+                        page = app['catalog'].channel(slug)
+                    except ValueError:  # Twitch dice que no existe
+                        return self.send(404, b'canal desconocido')
+                    return self.send(200, json.dumps(page).encode(), 'application/json')
                 m = re.match(r'^/api/chat/(.+)$', path)
                 if m:
                     if not ITEM_RE.match(m.group(1)):
@@ -207,8 +217,7 @@ def make_handler(app):
             def resolve():
                 master = provider.master_url(item)
                 return hls.pick_variant(fetch(master).decode(), master, q)
-            if app['catalog'].route(item) == 'direct':
-                return self.redirect(resolve())
+            # todo por el proxy: Twitch directo a la TV falla (error 3) y los anteriores hay que convertirlos
             return self.redirect('/h/%s.m3u8' % app['proxy'].open(resolve))
 
         def do_POST(self):
@@ -250,7 +259,7 @@ def make_handler(app):
 
 def build(config, catalog=None, state=None, proxy=None, providers=None, fetch=net.fetch, verbose=False):
     state = state or State(config.state_path)
-    providers = providers or {'twitch': twitch, 'kick': kick}
+    providers = providers or {'twitch': twitch}
     app = {'state': state, 'providers': providers, 'fetch': fetch, 'verbose': verbose, 'lock': threading.Lock(), 'muted': {},
            'diag_path': os.path.join(os.path.dirname(os.path.abspath(config.state_path)), 'diagnostico.jsonl'),
            'catalog': catalog or Catalog(config, providers, state),

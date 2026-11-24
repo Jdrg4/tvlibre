@@ -16,14 +16,7 @@ sub show()
     it = c.item
     w = m.top.width
     m.thumb.uri = c.HDPosterUrl
-    if it.platform = "kick" then
-        m.plat.color = "0x53FC18FF"
-        m.platName.color = "0x000000FF"
-    else
-        m.plat.color = "0x9146FFFF"
-        m.platName.color = "0xFFFFFFFF"
-    end if
-    m.platName.text = UCase(it.platform)
+    m.plat.visible = false  ' solo hay Twitch: la etiqueta de plataforma ya no dice nada
 
     if it.kind = "live" then
         h = m.top.height
@@ -34,14 +27,15 @@ sub show()
         m.badge.visible = true
         m.durBg.visible = false
         m.prog.visible = false
-        m.plat.translation = [20, h - 155]
-        place(m.l1, 155, h - 160, w - 175, 40)
-        m.l1.text = it.channel
+        place(m.l1, 20, h - 160, w - 40, 40)
+        m.l1.text = cleanText(nameOf(it))
         place(m.l2, 20, h - 115, w - 40, 0)
         m.l2.maxLines = 1
         m.l2.text = cleanText(it.title)
         place(m.l3, 20, h - 60, w - 40, 40)
-        m.l3.text = viewers(it.viewers) + " · " + since(it.started_at)
+        started = ""
+        if it.started_at <> invalid then started = since(it.started_at)
+        m.l3.text = cleanText(joinDot([viewers(it.viewers), it.category, started]))
     else
         th = Int(w * 9 / 16)
         place(m.ph, 0, 0, w, th)
@@ -62,8 +56,7 @@ sub show()
         m.l2.maxLines = 2
         m.l2.text = cleanText(it.title)
         m.l1.text = ""
-        m.plat.translation = [0, th + 95]
-        place(m.l3, 130, th + 95, w - 130, 30)
-        m.l3.text = it.channel + " · " + relDay(it.started_at)
+        place(m.l3, 0, th + 95, w, 30)
+        m.l3.text = cleanText(nameOf(it)) + " · " + relDay(it.started_at)
     end if
 end sub

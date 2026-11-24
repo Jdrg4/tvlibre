@@ -5,10 +5,15 @@
 import os
 import re
 import sys
+import time
 import zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PARTS = ('manifest', 'source', 'components', 'images')
+
+
+def build_number(now=None):
+    return int((time.time() if now is None else now) // 60) % 100000
 
 
 def build(server, out):
@@ -26,7 +31,10 @@ def build(server, out):
                 if rel == 'manifest':
                     with open(p, encoding='utf-8') as f:
                         text = f.read()
-                    z.writestr(rel, re.sub(r'(?m)^tvlibre_server=.*$', 'tvlibre_server=' + server, text))
+                    text = re.sub(r'(?m)^tvlibre_server=.*$', 'tvlibre_server=' + server, text)
+                    # versión distinta en cada build (cambia cada minuto): el Roku guarda el icono por versión
+                    text = re.sub(r'(?m)^build_version=.*$', 'build_version=%d' % build_number(), text)
+                    z.writestr(rel, text)
                 else:
                     z.write(p, rel)
     return out

@@ -49,6 +49,8 @@ function relDay(iso as dynamic) as string
     days = localDay(nowSecs()) - localDay(isoSecs(iso))
     if days <= 0 then return "hoy"
     if days = 1 then return "ayer"
+    if days >= 730 then return "hace " + Int(days / 365).ToStr() + " años"
+    if days >= 60 then return "hace " + Int(days / 30).ToStr() + " meses"
     return "hace " + days.ToStr() + " días"
 end function
 
@@ -59,13 +61,44 @@ function since(iso as dynamic) as string
     return "hace " + Int(mins / 60).ToStr() + " h " + (mins mod 60).ToStr() + " min"
 end function
 
+' 1234 → "1,2 mil"; 3193373 → "3,2 M"
+function many(n as dynamic) as string
+    if n = invalid then return ""
+    unit = ""
+    base = 1
+    if n >= 1000000 then
+        unit = " M"
+        base = 1000000
+    else if n >= 1000 then
+        unit = " mil"
+        base = 1000
+    end if
+    if base = 1 then return Int(n).ToStr()
+    tenths = Int(n * 10 / base + 0.5)
+    s = Int(tenths / 10).ToStr()
+    if tenths mod 10 <> 0 then s = s + "," + (tenths mod 10).ToStr()
+    return s + unit
+end function
+
 function viewers(n as dynamic) as string
     if n = invalid then return ""
-    if n >= 1000 then
-        tenths = Int(n / 100 + 0.5)
-        s = Int(tenths / 10).ToStr()
-        if tenths mod 10 <> 0 then s = s + "," + (tenths mod 10).ToStr()
-        return s + " mil espectadores"
-    end if
-    return n.ToStr() + " espectadores"
+    return many(n) + " espectadores"
+end function
+
+' Nombre para mostrar: el displayName de Twitch ("IlloJuan") o, si no vino, el login.
+function nameOf(it as object) as string
+    if it.name <> invalid and it.name <> "" then return it.name
+    return it.channel
+end function
+
+' Une partes no vacías con " · ".
+function joinDot(parts as object) as string
+    out = ""
+    for each p in parts
+        if p <> invalid and p <> "" then
+            if out <> "" then out = out + " · "
+            out = out + p
+        end if
+    end for
+    return out
 end function

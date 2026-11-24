@@ -5,32 +5,34 @@
 <div id="home">
   <div id="top">
     <span id="brand">tvlibre</span>
-    <span id="canales" class="pill">🔍 Canales</span>
+    <span id="canales" class="pill">🔍 Buscar canal</span>
     <span id="brillo" class="pill"><span class="bbtn" id="bMenos">−</span> ☀ <span id="brilloVal">100</span>% <span class="bbtn" id="bMas">+</span></span>
     <span id="hora"></span>
   </div>
-  <div id="liveSec">
-    <h3>En vivo ahora</h3>
-    <div class="viewport"><div class="row" id="liveRow"></div><div class="nav prev" data-row="live">‹</div><div class="nav next" data-row="live">›</div></div>
+  <div id="chHead">
+    <div id="chAv"></div>
+    <div id="chInfo"><div id="chName"></div><div id="chMeta"></div><div id="chDesc"></div></div>
+    <span id="chFollow" class="pill"></span>
   </div>
-  <div id="vodSec">
-    <h3>Streams anteriores</h3>
-    <div class="viewport"><div class="row" id="vodRow"></div><div class="nav prev" data-row="vods">‹</div><div class="nav next" data-row="vods">›</div></div>
-  </div>
-  <div id="discSec">
-    <h3>También en vivo</h3>
-    <div class="viewport"><div class="row" id="discRow"></div><div class="nav prev" data-row="disc">‹</div><div class="nav next" data-row="disc">›</div></div>
-  </div>
-  <div id="msg"></div>
+  <div class="sec" id="sec0"><h3></h3>
+    <div class="viewport"><div class="row" id="row0"></div><div class="nav prev" data-row="0">‹</div><div class="nav next" data-row="0">›</div></div></div>
+  <div class="sec" id="sec1"><h3></h3>
+    <div class="viewport"><div class="row" id="row1"></div><div class="nav prev" data-row="1">‹</div><div class="nav next" data-row="1">›</div></div></div>
+  <div class="sec" id="sec2"><h3></h3>
+    <div class="viewport"><div class="row" id="row2"></div><div class="nav prev" data-row="2">‹</div><div class="nav next" data-row="2">›</div></div></div>
+  <div class="sec" id="sec3"><h3></h3>
+    <div class="viewport"><div class="row" id="row3"></div><div class="nav prev" data-row="3">‹</div><div class="nav next" data-row="3">›</div></div></div>
+  <div id="hint"></div>
 </div>
+<div id="msg"></div>
 <div id="chan">
   <div id="chanBox">
-    <h3>Canales</h3>
-    <input id="q" type="text" placeholder="Buscar en Kick y Twitch…" autocomplete="off">
+    <h3>Buscar canal de Twitch</h3>
+    <input id="q" type="text" placeholder="Nombre del streamer: illojuan, rubius, alexby11…" autocomplete="off">
     <div id="chanTitle"></div>
     <div id="chanList"></div>
     <div id="chanMsg"></div>
-    <div id="chanHint">↑/↓ moverse · OK seguir o dejar de seguir · Atrás volver</div>
+    <div id="chanHint">↑/↓ moverse · OK abrir el canal · → seguir o dejar de seguir · Atrás volver</div>
   </div>
 </div>
 <div id="player">
@@ -42,7 +44,7 @@
     <div id="pTitle"></div>
     <div id="pTrack"><div id="pFill"></div></div>
     <div id="pInfo"><span id="pTime"></span><span id="pHint">←/→ adelantar · OK pausa · ↑/↓ brillo · C o rojo: chat · Atrás salir</span></div>
-    <div id="ctrls"><span class="cbtn" data-a="back">⟵ Volver</span><span class="cbtn" data-a="-60">−1 min</span><span class="cbtn" data-a="-10">−10 s</span><span class="cbtn" data-a="pause">⏯ Pausa</span><span class="cbtn" data-a="10">+10 s</span><span class="cbtn" data-a="60">+1 min</span><span class="cbtn" data-a="q">Calidad</span><span class="cbtn" data-a="chat">💬 Chat</span><span class="cbtn" data-a="b-">☀ −</span><span id="pBri">100%</span><span class="cbtn" data-a="b+">☀ +</span></div>
+    <div id="ctrls"><span class="cbtn" data-a="back">⟵ Volver</span><span class="cbtn" data-a="-60">−1 min</span><span class="cbtn" data-a="-10">−10 s</span><span class="cbtn" data-a="pause">⏯ Pausa</span><span class="cbtn" data-a="10">+10 s</span><span class="cbtn" data-a="60">+1 min</span><span class="cbtn" data-a="q">Calidad</span><span class="cbtn" data-a="chat">💬 Chat</span><span class="cbtn" data-a="canal">📺 Canal</span><span class="cbtn" data-a="b-">☀ −</span><span id="pBri">100%</span><span class="cbtn" data-a="b+">☀ +</span></div>
   </div>
 </div>
 <div id="dim"></div>

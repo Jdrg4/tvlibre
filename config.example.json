@@ -3,8 +3,9 @@
   "state_path": "state.json",
   "vods_per_channel": 20,
   "default_quality": 1080,
+  "language": "es",
   "channels": [
-    {"platform": "kick", "slug": "ejemplo_kick"},
-    {"platform": "twitch", "slug": "ejemplo_twitch"}
+    {"platform": "twitch", "slug": "ejemplo_twitch"},
+    {"platform": "twitch", "slug": "otro_ejemplo"}
   ]
 }

@@ -24,11 +24,12 @@ end sub
 sub draw(focusAt as integer)
     root = CreateObject("roSGNode", "ContentNode")
     first = root.createChild("ContentNode")
-    first.title = "Buscar en Kick y Twitch…"
+    first.title = "Buscar un streamer (illojuan, rubius, alexby11…)"
     for each it in m.items
-        line = cleanText(it.name) + "  ·  " + UCase(it.platform)
+        line = cleanText(it.name)
+        if it.followers <> invalid then line = line + "  ·  " + many(it.followers) + " seguidores"
         if it.live then line = line + "  ·  EN VIVO"
-        if it.following then line = line + "      [ Siguiendo ]" else line = line + "      [ Seguir ]"
+        if it.following then line = line + "      [ Siguiendo ]" else line = line + "      [ + Seguir ]"
         root.createChild("ContentNode").title = line
     end for
     m.list.content = root
@@ -54,8 +55,10 @@ sub onPick()
     i = m.list.itemSelected
     if i = 0 then
         askText()
-    else
-        toggle(i - 1)
+    else if i - 1 < m.items.count() then
+        ' abre la página del canal: la portada la muestra al cerrarse el panel
+        m.top.openSlug = m.items[i - 1].slug
+        m.top.closed = true
     end if
 end sub
 
@@ -119,8 +122,13 @@ sub onSaved(ev as object)
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
-    if press and key = "back" then
+    if not press then return false
+    if key = "back" then
         m.top.closed = true
+        return true
+    end if
+    if key = "right" and m.list.itemFocused > 0 then
+        toggle(m.list.itemFocused - 1)
         return true
     end if
     return false

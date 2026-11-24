@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="tvlibre — Kick y Twitch en la TV que ya no recibe apps" width="100%">
+  <img src="docs/assets/banner.svg" alt="tvlibre — Twitch en la TV que ya no recibe apps" width="100%">
 </p>
 
 <p align="center">
@@ -16,11 +16,11 @@
 
 ---
 
-**tvlibre convierte tu Smart TV viejo, o tu Roku, en una app para ver Kick y Twitch.**
-Muchos televisores traen un sistema que ya no recibe apps: no hay Kick, no hay Twitch y no hay forma de
-instalarlos. Pero su navegador integrado sí reproduce video, y un Roku acepta canales propios. tvlibre
-aprovecha las dos cosas: un servidor pequeño en tu casa consulta Kick y Twitch, adapta el video y le
-entrega a la pantalla una portada pensada para el control remoto.
+**tvlibre convierte tu Smart TV viejo, o tu Roku, en una app para ver Twitch: cualquier streamer, en vivo o
+sus streams anteriores.** Muchos televisores traen un sistema que ya no recibe apps: no hay Twitch y no hay
+forma de instalarlo. Pero su navegador integrado sí reproduce video, y un Roku acepta canales propios. tvlibre
+aprovecha las dos cosas: un servidor pequeño en tu casa consulta Twitch, adapta el video y le entrega a la
+pantalla una portada pensada para el control remoto.
 
 > [!WARNING]
 > **Solo para tu red de casa.** tvlibre rechaza cualquier petición que no venga de una IP privada, pero
@@ -34,9 +34,11 @@ entrega a la pantalla una portada pensada para el control remoto.
 - 🟣 **Y también un canal para Roku.** La misma portada en el reproductor nativo del Roku, conectado por HDMI.
 - 🔴 **Lo que importa, arriba.** "En vivo ahora" con tus canales que estén transmitiendo, y debajo sus
   streams anteriores, mezclados por fecha.
-- 🔍 **Busca y sigue streamers desde el control.** Escribe un nombre, mira quién está en vivo en Kick y Twitch y
-  agrégalo a tu portada (o quítalo) sin tocar el servidor.
-- 🧭 **"También en vivo".** Una fila con otros directos en español de las mismas categorías que tus canales.
+- 🔍 **Ve a cualquier streamer.** Escribe unas letras ("illo", "alexby", "auron") y el canal de verdad sale
+  primero, ordenado por seguidores. OK abre su página: directo, anteriores y destacados, sin tener que
+  seguirlo. Con un botón lo sigues y pasa a tu portada.
+- 🔥 **"Lo más visto ahora".** Los directos más vistos de todo Twitch en tu idioma, y "También en vivo" con los
+  de los mismos juegos que tus canales. Desde cualquier tarjeta, un botón abre la página de ese streamer.
 - 💬 **El chat al lado del video**, en vivo y también en los anteriores, sincronizado con el segundo que estás
   viendo. Solo lectura, y se muestra u oculta con un botón.
 - ⏯️ **Retoma donde ibas.** Los anteriores se pueden adelantar y, si los dejas a medias, siguen donde quedaste,
@@ -50,13 +52,12 @@ entrega a la pantalla una portada pensada para el control remoto.
 flowchart LR
     TV["📺 Navegador de la TV"] -- HTTP --> S["tvlibre<br/>(servidor en tu red)"]
     R["🟣 Canal de Roku"] -- HTTP --> S
-    S -- HTTPS --> K["Kick"]
     S -- HTTPS --> T["Twitch"]
     S -. "fMP4 → MPEG-TS (ffmpeg -c copy)" .-> S
 ```
 
 1. **Instala el servidor** en un equipo de tu red que quede encendido (un Linux, un NAS, una Raspberry).
-2. **Pon tus canales** de Kick y Twitch en su configuración.
+2. **Pon tus canales** en su configuración, o déjala vacía y búscalos y síguelos desde la pantalla.
 3. **Ábrelo en la pantalla:** en el navegador de la TV, o instala el canal en tu Roku.
 
 ## Arranque rápido: el servidor
@@ -87,15 +88,17 @@ sudo systemctl enable --now "tvlibre@$USER"
   "state_path": "/var/lib/tvlibre/state.json",
   "vods_per_channel": 20,
   "default_quality": 1080,
+  "language": "es",
   "channels": [
-    {"platform": "kick", "slug": "nombre_del_canal"},
-    {"platform": "twitch", "slug": "nombre_del_canal"}
+    {"platform": "twitch", "slug": "illojuan"},
+    {"platform": "twitch", "slug": "rubius"}
   ]
 }
 ```
 
-- `slug` es el nombre del canal en su URL (`kick.com/<slug>`, `twitch.tv/<slug>`). Puedes poner varios de
-  cada plataforma.
+- `slug` es el nombre del canal en su URL (`twitch.tv/<slug>`). La lista puede ir vacía.
+- `language` (dos letras: `es`, `en`, `pt`…) elige el idioma de "Lo más visto ahora" y "También en vivo".
+- Kick se quitó: las entradas `kick` de una configuración vieja se ignoran con un aviso, no impiden arrancar.
 - `state_path` es donde se guardan el brillo, los puntos de retomar y los canales que sigas desde la pantalla,
   compartidos entre la TV y el Roku. `channels` es solo la lista inicial: una vez que sigues o dejas de seguir
   a alguien desde la pantalla, manda la de `state_path`.
@@ -145,13 +148,17 @@ curl --digest -u rokudev -F "mysubmit=Install" -F "archive=@roku/dist/tvlibre-ro
 |---|---|---|---|
 | Portada | Flechas | Flechas | Moverse entre tarjetas y filas |
 | Portada | OK | OK | Abrir el directo o el anterior |
-| Portada | ↑ hasta "🔍 Canales" y OK | `*` | Buscar canales, seguir o dejar de seguir |
+| Portada | ↑ hasta "🔍 Buscar canal" y OK | `*` | Buscar cualquier streamer: OK abre su página, → lo sigue o deja de seguir |
+| Portada | Botón verde o G | ⏯ | Abrir la página del canal de la tarjeta enfocada |
+| Página de canal | ↑ hasta "+ Seguir" y OK | ↑ desde la primera fila y OK | Seguir o dejar de seguir |
+| Página de canal | Atrás | Atrás | Volver a la portada |
 | Portada | ← → sobre el ☀ | ↑ desde la primera fila, luego ← → | Bajar o subir el brillo |
 | Reproductor | ← → (mantener: 30 s y 60 s) | ← → (mantener acelera hasta 5 min por paso) · ⏪ ⏩ 10 min | Retroceder o adelantar |
 | Reproductor | OK | ⏯ | Pausa |
 | Reproductor | ↑ ↓ | ↑ ↓ | Subir o bajar el brillo |
 | Reproductor | C, botón rojo o "💬 Chat" | OK | Mostrar u ocultar el chat (en el Roku, `*` lo toma el sistema durante el video) |
 | Reproductor | Botón de calidad (puntero) | ↺ (menú) | Cambiar entre 1080p y 720p |
+| Reproductor | Botón verde, G o "📺 Canal" | ↺ (menú) → "Ir al canal" | Salir del video a la página de ese streamer |
 | Portada y reproductor | — | ↑↑ en la portada o ↺ en el reproductor | Temporizador de apagado: no, 5 a 120 min. Un minuto antes avisa y cualquier botón lo cancela |
 | Reproductor | Atrás | Atrás | Volver a la portada (guarda dónde ibas) |
 
@@ -165,32 +172,36 @@ En la TV también funciona el puntero (la "manito"): clic en tarjetas, en las fl
 | **Solo IP privadas** | Se rechaza cualquier petición que no venga de 10/8, 172.16/12, 192.168/16, loopback o 100.64/10 (Tailscale). |
 | **Solo por IP** | tvlibre atiende solo si se entra por `http://192.168.x.x:8099/` o `localhost`, nunca por un nombre de dominio: así ninguna web abierta en otro navegador de tu casa puede usarlo (DNS rebinding). |
 | **Escrituras con JSON** | Los `POST` exigen `Content-Type: application/json`, lo que obliga a un preflight CORS que el servidor no contesta. |
-| **Imágenes de hosts conocidos** | El proxy de miniaturas solo pide a los CDN de Kick y Twitch. |
+| **Imágenes de hosts conocidos** | El proxy de miniaturas solo pide a la CDN de Twitch (y a Twemoji para los emojis del chat). |
 
 ## Por dentro
 
-- **Kick en vivo:** la pantalla lo pide directo a la CDN de Kick, sin cargar el servidor.
-- **Twitch en vivo y los anteriores:** pasan por tvlibre, que reescribe cada playlist HLS con URLs absolutas
+- **Cualquier canal, cualquier video:** `/api/channel/<login>` arma la página de un streamer, y un
+  `/play/<id>` de un video que nunca salió en pantalla (otro canal, o tras reiniciar el servidor) se busca en
+  Twitch por su id.
+- **Búsqueda:** una sola consulta GQL corre la búsqueda general de Twitch y la de nombres que empiezan igual;
+  se juntan y se ordenan por seguidores (el nombre exacto va primero solo si es un canal con público).
+- **En vivo y los anteriores:** pasan por tvlibre, que reescribe cada playlist HLS con URLs absolutas
   y sin las etiquetas que un reproductor viejo no entiende.
-- **Anteriores de Twitch:** vienen en fMP4 y tvlibre convierte cada segmento a MPEG-TS con
+- **Anteriores:** vienen en fMP4 y tvlibre convierte cada segmento a MPEG-TS con
   `ffmpeg -c copy`, como máximo 3 a la vez.
-- **Chat:** en vivo, el de Kick sale de su API de mensajes y el de Twitch de su IRC público, en modo anónimo; la
-  conexión se cierra sola si nadie lo mira. En los anteriores se pide por el segundo del video.
+- **Chat:** en vivo sale del IRC público de Twitch, en modo anónimo; la conexión se cierra sola si nadie lo
+  mira. En los anteriores se pide por el segundo del video.
 - **Tramos silenciados:** Twitch quita el audio de partes de sus anteriores por derechos de autor. tvlibre los
   detecta (segmentos `-muted`) y la barra del reproductor lo avisa, para que no parezca una falla.
-- **Roku:** el canal (BrightScript + SceneGraph) usa la misma API (`/api/home`, `/play/<id>.m3u8`) y el
-  reproductor nativo del Roku.
+- **Roku:** el canal (BrightScript + SceneGraph) usa la misma API (`/api/home`, `/api/channel/<login>`,
+  `/play/<id>.m3u8`) y el reproductor nativo del Roku. `build.py` escribe un `build_version` nuevo en cada
+  build: el Roku guarda el icono del canal según la versión.
 
 ## Aviso
 
-tvlibre usa las **APIs públicas no oficiales** de Kick y Twitch, las mismas que usan sus sitios web, así que
-puede dejar de funcionar si cambian. No tiene relación con Kick, Twitch, Roku ni ningún fabricante de
-televisores. Es para uso personal: no hay inicio de sesión, así que el contenido solo para suscriptores no
+tvlibre usa la **API pública no oficial** de Twitch, la misma que usa su sitio web, así que puede dejar de
+funcionar si cambia. No tiene relación con Twitch, Roku ni ningún fabricante de televisores. Es para uso personal: no hay inicio de sesión, así que el contenido solo para suscriptores no
 aparece, y no quita la publicidad que las plataformas meten en el stream.
 
 ## Limitaciones conocidas
 
-- Un enlace `/play/<id>` con un id inexistente fuerza a recargar la portada: no tiene límite de frecuencia.
+- Un enlace `/play/<id>` con un id que tvlibre no ha visto se le pregunta a Twitch: no tiene límite de frecuencia.
 - El canal de Roku necesita el modo desarrollador: no está en la tienda de canales.
 
 ## Contribuir

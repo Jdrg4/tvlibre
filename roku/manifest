@@ -1,7 +1,9 @@
 title=tvlibre
 major_version=1
-minor_version=0
+minor_version=1
+# build.py pone aquí un número nuevo en cada build: con el mismo, el Roku seguía mostrando el icono viejo de su caché
 build_version=1
+mm_icon_focus_fhd=pkg:/images/icon_fhd.png
 mm_icon_focus_hd=pkg:/images/icon_hd.png
 mm_icon_focus_sd=pkg:/images/icon_sd.png
 splash_screen_fhd=pkg:/images/splash_fhd.png

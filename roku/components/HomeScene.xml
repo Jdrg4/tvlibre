@@ -6,11 +6,22 @@
     <Rectangle width="1920" height="1080" color="0x0E0E10FF"/>
     <Group id="home">
       <Label text="tvlibre" translation="[80,40]" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
-      <Label text="*  Canales" translation="[380,48]" width="300" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
+      <Label text="*  Buscar canal" translation="[380,48]" width="300" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
       <Label id="sleep" translation="[700,48]" width="330" horizAlign="right" font="font:SmallSystemFont" color="0x888888FF"/>
       <Label id="bri" translation="[1000,48]" width="420" horizAlign="right" font="font:SmallSystemFont" color="0xBBBBBBFF"/>
       <Label id="clock" translation="[1440,48]" width="400" horizAlign="right" font="font:MediumSystemFont" color="0xFFFFFFFF"/>
+      <!-- cabecera de la página de un canal (con la portada queda oculta) -->
+      <Group id="chHead" translation="[80,110]" visible="false">
+        <Rectangle width="130" height="130" color="0x26262CFF"/>
+        <Poster id="chAv" width="130" height="130" loadDisplayMode="scaleToZoom"/>
+        <Label id="chName" translation="[160,8]" width="1200" font="font:LargeBoldSystemFont" color="0xFFFFFFFF"/>
+        <Label id="chMeta" translation="[160,80]" width="1200" font="font:SmallSystemFont" color="0xAAAAAAFF"/>
+        <Rectangle id="chFollowBg" translation="[1440,40]" width="320" height="64" color="0x9146FFFF">
+          <Label id="chFollow" width="320" height="64" horizAlign="center" vertAlign="center" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
+        </Rectangle>
+      </Group>
       <Label id="msg" translation="[80,115]" width="1760" font="font:SmallestSystemFont" color="0xFF8080FF"/>
+      <Label id="hint" translation="[80,1030]" width="1760" font="font:SmallestSystemFont" color="0x666666FF"/>
       <RowList id="rows" translation="[80,160]" itemComponentName="Card" numRows="2"
         itemSize="[1840,420]" rowItemSpacing="[[30,0]]"
         showRowLabel="[true]" rowLabelOffset="[[0,14]]" rowLabelColor="0xFFFFFFFF" rowLabelFont="font:MediumBoldSystemFont"
@@ -43,13 +54,14 @@
     <!-- brillo propio: un velo negro encima de todo, como en la TV -->
     <Rectangle id="dim" width="1920" height="1080" color="0x000000FF" opacity="0"/>
     <!-- menú del reproductor (↺): temporizador, calidad y chat -->
-    <Group id="pmenu" translation="[660,300]" visible="false">
-      <Rectangle width="600" height="330" color="0x18181BF2"/>
+    <Group id="pmenu" translation="[610,280]" visible="false">
+      <Rectangle width="700" height="390" color="0x18181BF2"/>
       <Label text="Opciones" translation="[40,28]" font="font:MediumBoldSystemFont" color="0xFFFFFFFF"/>
-      <Label id="pm0" translation="[40,110]" width="520" font="font:SmallSystemFont"/>
-      <Label id="pm1" translation="[40,170]" width="520" font="font:SmallSystemFont"/>
-      <Label id="pm2" translation="[40,230]" width="520" font="font:SmallSystemFont"/>
-      <Label text="↑↓ elegir · ← → cambiar · ↺ cerrar" translation="[40,290]" width="520" font="font:SmallestSystemFont" color="0x888888FF"/>
+      <Label id="pm0" translation="[40,110]" width="620" font="font:SmallSystemFont"/>
+      <Label id="pm1" translation="[40,170]" width="620" font="font:SmallSystemFont"/>
+      <Label id="pm2" translation="[40,230]" width="620" font="font:SmallSystemFont"/>
+      <Label id="pm3" translation="[40,290]" width="620" font="font:SmallSystemFont"/>
+      <Label text="↑↓ elegir · ← → cambiar · OK abrir · ↺ cerrar" translation="[40,350]" width="620" font="font:SmallestSystemFont" color="0x888888FF"/>
     </Group>
     <!-- aviso del temporizador de apagado: encima del velo de brillo para que se lea aunque esté oscuro -->
     <Group id="sleepWarn" visible="false">

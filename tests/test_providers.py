@@ -2,7 +2,7 @@ import json
 import os
 import unittest
 
-from tvlibre.providers import kick, twitch
+from tvlibre.providers import twitch
 
 FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures')
 
@@ -42,73 +42,8 @@ class TwitchTest(unittest.TestCase):
         self.assertEqual(len(vods), 2)
 
 
-class KickTest(unittest.TestCase):
-    def test_kick_live_excluye_grabacion(self):
-        live, vods = kick.parse_channel(load('kick_channel_live.json'), load('kick_videos.json'), 'ejemplo_kick', 20)
-        self.assertEqual(live['id'], 'kick-live-ejemplo_kick')
-        self.assertEqual(live['viewers'], load('kick_channel_live.json')['livestream']['viewer_count'])
-        self.assertNotIn('kick-vod-00000000-0000-4000-8000-000000000000', [v['id'] for v in vods])
-        self.assertEqual(len(vods), 3)
-
-    def test_kick_live_miniatura_de_la_grabacion(self):
-        # la miniatura de stream.kick.com/thumbnails/livestream da 403; la del video en curso sí carga
-        live, _ = kick.parse_channel(load('kick_channel_live.json'), load('kick_videos.json'), 'ejemplo_kick', 20)
-        self.assertEqual(live['thumb'], 'https://images.kick.com/video_thumbnails/ejemplo/0/720.webp')
-
-    def test_kick_duracion_ms(self):
-        _, vods = kick.parse_channel(load('kick_channel_offline.json'), load('kick_videos.json'), 'ejemplo_kick', 20)
-        first = vods[0]
-        self.assertEqual(first['id'], 'kick-vod-00000000-0000-4000-8000-000000000001')
-        self.assertEqual(first['duration_s'], 21083)
-        self.assertEqual(first['started_at'], '2026-10-19T00:10:01Z')
-        self.assertEqual(first['ref'], 'https://stream.kick.com/abc/ivs/v1/1/ejemplo/1/media/hls/master.m3u8')
-
-    def test_kick_offline(self):
-        live, _ = kick.parse_channel(load('kick_channel_offline.json'), load('kick_videos.json'), 'ejemplo_kick', 20)
-        self.assertIsNone(live)
-
-    def test_limite_vods(self):
-        _, vods = kick.parse_channel(load('kick_channel_offline.json'), load('kick_videos.json'), 'ejemplo_kick', 2)
-        self.assertEqual(len(vods), 2)
-
-
-def kick_ls(slug, viewers, cat='Just Chatting'):
-    return {'title': 'directo de ' + slug, 'viewer_count': viewers, 'start_time': '2026-10-20T01:00:00Z',
-            'thumbnail': {'src': 'https://images.kick.com/video_thumbnails/x/%s/720.webp' % slug},
-            'channel': {'slug': slug, 'username': slug.upper()}, 'category': {'name': cat}}
-
 
 class DescubrirTest(unittest.TestCase):
-    def test_kick_parse_search(self):
-        js = {'channels': [{'slug': 'canal_%d' % i, 'isLive': i == 0,
-                            'user': {'username': 'Canal%d' % i, 'profilePic': 'https://files.kick.com/p%d.webp' % i}}
-                           for i in range(10)]}
-        res = kick.parse_search(js)
-        self.assertEqual(len(res), 8)
-        self.assertEqual(res[0], {'platform': 'kick', 'slug': 'canal_0', 'name': 'Canal0',
-                                  'avatar': 'https://files.kick.com/p0.webp', 'live': True, 'viewers': None})
-        self.assertFalse(res[1]['live'])
-
-    def test_kick_parse_livestreams_excluye(self):
-        js = {'data': {'livestreams': [kick_ls('uno', 50), kick_ls('seguido', 900), kick_ls('dos', 10)]}}
-        items = kick.parse_livestreams(js, {'seguido'})
-        self.assertEqual([i['id'] for i in items], ['kick-live-uno', 'kick-live-dos'])
-        it = items[0]
-        self.assertEqual((it['platform'], it['kind'], it['channel'], it['viewers'], it['category']),
-                         ('kick', 'live', 'uno', 50, 'Just Chatting'))
-        self.assertIsNone(it['duration_s'])
-        self.assertTrue(it['thumb'].startswith('https://images.kick.com/'))
-
-    def test_kick_search_codifica(self):
-        urls = []
-        orig = kick.net.fetch_json
-        kick.net.fetch_json = lambda url, *a, **k: urls.append(url) or {'channels': []}
-        try:
-            kick.search('año & co')
-        finally:
-            kick.net.fetch_json = orig
-        self.assertIn('searched_word=a%C3%B1o+%26+co', urls[0])
-
     def test_twitch_parse_search(self):
         gql = {'data': {'searchFor': {'channels': {'edges': [
             {'item': {'login': 'uno', 'displayName': 'Uno', 'profileImageURL': 'https://static-cdn.jtvnw.net/u.png',
@@ -117,7 +52,8 @@ class DescubrirTest(unittest.TestCase):
             {'item': {}}]}}}}
         res = twitch.parse_search(gql)
         self.assertEqual(res[0], {'platform': 'twitch', 'slug': 'uno', 'name': 'Uno',
-                                  'avatar': 'https://static-cdn.jtvnw.net/u.png', 'live': True, 'viewers': 321})
+                                  'avatar': 'https://static-cdn.jtvnw.net/u.png', 'live': True, 'viewers': 321,
+                                  'followers': None, 'category': None})
         self.assertEqual((res[1]['live'], res[1]['viewers']), (False, None))
         self.assertEqual(len(res), 2)  # los resultados que no son canales se ignoran
 
@@ -131,6 +67,110 @@ class DescubrirTest(unittest.TestCase):
         self.assertEqual([i['id'] for i in items], ['twitch-live-uno'])
         self.assertEqual((items[0]['ref'], items[0]['category'], items[0]['viewers']), ('uno', 'Juego', 5))
 
+
+class PatchNet:
+    """Sustituye net.fetch_json: responde según lo que aparezca en la consulta y guarda los pedidos."""
+    def __init__(self, responses):
+        self.responses, self.calls = responses, []
+
+    def fetch(self, url, data=None, *a, **k):
+        self.calls.append(data)
+        for key, resp in self.responses:
+            if key in data['query']:
+                return resp
+        raise AssertionError('consulta inesperada: ' + data['query'][:80])
+
+    def __enter__(self):
+        self.orig = twitch.net.fetch_json
+        twitch.net.fetch_json = self.fetch
+        return self.calls
+
+    def __exit__(self, *a):
+        twitch.net.fetch_json = self.orig
+
+
+def video_node(i, created='2026-10-18T10:00:00Z'):
+    return {'node': {'id': str(i), 'title': 'video %d' % i, 'lengthSeconds': 600, 'createdAt': created,
+                     'previewThumbnailURL': 'https://static-cdn.jtvnw.net/cf_vods/x/%d.jpg' % i}}
+
+
+class CualquierCanalTest(unittest.TestCase):
+    def test_pagina_de_canal(self):
+        gql = {'data': {'user': {
+            'login': 'canal_a', 'displayName': 'CanalA', 'description': ' hola ',
+            'profileImageURL': 'https://static-cdn.jtvnw.net/a.png', 'followers': {'totalCount': 1234},
+            'lastBroadcast': {'startedAt': '2026-10-19T23:00:00Z', 'game': {'name': 'Juego'}},
+            'stream': {'title': 'en vivo', 'viewersCount': 50, 'createdAt': '2026-10-19T23:00:00Z',
+                       'game': {'name': 'Juego'}, 'previewImageURL': 'https://static-cdn.jtvnw.net/l.jpg'},
+            'videos': {'edges': [video_node(1, '2026-10-19T23:00:05Z'), video_node(2)]},
+            'highlights': {'edges': [video_node(3)]}}}}
+        p = twitch.parse_page(gql, 'canal_a', 20)
+        self.assertEqual(p['channel'], {'platform': 'twitch', 'slug': 'canal_a', 'name': 'CanalA', 'description': 'hola',
+                                        'avatar': 'https://static-cdn.jtvnw.net/a.png', 'followers': 1234,
+                                        'last_live': '2026-10-19T23:00:00Z', 'category': 'Juego'})
+        self.assertEqual((p['live']['id'], p['live']['name'], p['live']['category']),
+                         ('twitch-live-canal_a', 'CanalA', 'Juego'))
+        self.assertEqual([v['id'] for v in p['vods']], ['twitch-vod-2'])  # el 1 es el directo en curso
+        self.assertEqual([v['id'] for v in p['highlights']], ['twitch-vod-3'])
+
+    def test_pagina_canal_inexistente(self):
+        with self.assertRaises(ValueError):
+            twitch.parse_page({'data': {'user': None}}, 'nadie', 20)
+
+    def test_item_en_vivo_sin_consultar(self):
+        with PatchNet([]) as calls:
+            it = twitch.item('twitch-live-canal_a')
+        self.assertEqual((it['kind'], it['ref'], it['channel']), ('live', 'canal_a', 'canal_a'))
+        self.assertEqual(calls, [])
+
+    def test_item_anterior_consulta_el_video(self):
+        v = dict(video_node(77)['node'], owner={'login': 'canal_b', 'displayName': 'CanalB'})
+        with PatchNet([('video(id:', {'data': {'video': v}})]) as calls:
+            it = twitch.item('twitch-vod-77')
+        self.assertEqual((it['id'], it['channel'], it['name'], it['ref']), ('twitch-vod-77', 'canal_b', 'CanalB', '77'))
+        self.assertEqual(calls[0]['variables'], {'v': '77'})
+
+    def test_item_invalido(self):
+        for bad in ('twitch-vod-abc', 'kick-live-x', 'twitch-live-' + 'a' * 30, 'twitch-otro-1'):
+            with self.assertRaises(KeyError, msg=bad):
+                twitch.item(bad)
+        with PatchNet([('video(id:', {'data': {'video': None}})]):
+            with self.assertRaises(KeyError):
+                twitch.item('twitch-vod-404')
+
+    def test_lo_mas_visto(self):
+        def node(login, v):
+            return {'node': {'broadcaster': {'login': login, 'displayName': login.upper()}, 'title': 't',
+                             'viewersCount': v, 'createdAt': '2026-10-20T01:00:00Z', 'game': {'name': 'G'},
+                             'previewImageURL': None}}
+        gql = {'data': {'streams': {'edges': [node('uno', 9), node('seguido', 8), node('dos', 7), node('tres', 6)]}}}
+        with PatchNet([('streams(first:', gql)]) as calls:
+            items = twitch.top('es', {'seguido'}, 2)
+        self.assertEqual([i['id'] for i in items], ['twitch-live-uno', 'twitch-live-dos'])
+        self.assertEqual((items[0]['name'], items[0]['category']), ('UNO', 'G'))
+        self.assertIn('languages:[ES]', calls[0]['query'])  # en streams el idioma es un enum
+        self.assertEqual(calls[0]['variables'], {'n': 3})  # pide de más por los que se excluyen
+        with self.assertRaises(ValueError):
+            twitch.top('es"]}){', set(), 2)
+
+    def test_busqueda_junta_y_ordena_por_seguidores(self):
+        def u(login, f):
+            return {'login': login, 'followers': {'totalCount': f}, 'stream': None}
+        gql = {'data': {'searchFor': {'channels': {'edges': [{'item': u('famoso11', 3000000)}, {'item': u('otro', 50)},
+                                                             {'item': {}}]}},
+                        'searchUsers': {'edges': [{'node': u('buscado', 85)}, {'node': u('famoso11', 3000000)},
+                                                  {'node': u('mediano', 9000)}]}}}
+        # el nombre exacto con 85 seguidores no tapa al streamer conocido
+        self.assertEqual([r['slug'] for r in twitch.parse_search(gql, 'Buscado')],
+                         ['famoso11', 'mediano', 'buscado', 'otro'])
+        gql['data']['searchUsers']['edges'][0]['node']['followers']['totalCount'] = 1500
+        self.assertEqual(twitch.parse_search(gql, ' BUSCADO ')[0]['slug'], 'buscado')
+
+    def test_busqueda_una_sola_consulta(self):
+        with PatchNet([('searchFor', {'data': {}})]) as calls:
+            self.assertEqual(twitch.search('alexby'), [])
+        self.assertEqual(len(calls), 1)
+        self.assertIn('searchUsers', calls[0]['query'])
 
 if __name__ == '__main__':
     unittest.main()

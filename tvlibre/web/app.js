@@ -4,15 +4,19 @@
 
   var KEY = {LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13};
   var BACK = [8, 27, 461, 10009];
+  var CANAL_KEYS = [71, 404];  // G y el botón verde del control: abre el canal de la tarjeta enfocada
   var REFRESH_MS = 60000;
 
   var $ = function (id) { return document.getElementById(id); };
   var data = null;          // última respuesta de /api/home
+  var view = null;          // página de un canal abierta: {slug, data} (null = portada)
+  var homeDirty = false;    // se siguió o dejó de seguir algo desde la página de un canal
   var rows = [];            // [{name, el, items}] filas navegables, en orden vertical
   var focus = {row: 0, col: 0};
   var brightness = 100;
   var player = null;        // estado del reproductor mientras está abierto
   var retryTimer = null;    // un solo reintento pendiente aunque fallen varias cargas
+  var discAsked = false;    // ya se volvió a pedir la portada para traer lo que se busca aparte
 
   // ---------- utilidades ----------
   function xhr(method, url, body, cb) {
@@ -23,7 +27,7 @@
     x.onload = function () {
       if (!cb) { return; }
       if (x.status >= 200 && x.status < 300) { cb(null, x.responseText ? JSON.parse(x.responseText) : null); }
-      else { cb(new Error('HTTP ' + x.status)); }
+      else { cb(new Error(x.status === 404 ? 'no existe' : 'HTTP ' + x.status)); }
     };
     x.onerror = x.ontimeout = function () { if (cb) { cb(new Error('sin conexión')); } };
     x.send(body ? JSON.stringify(body) : null);
@@ -47,15 +51,23 @@
     var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     var b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     var days = Math.round((b - a) / 86400000);
+    if (days >= 730) { return 'hace ' + Math.floor(days / 365) + ' años'; }
+    if (days >= 60) { return 'hace ' + Math.floor(days / 30) + ' meses'; }
     return days <= 0 ? 'hoy' : days === 1 ? 'ayer' : 'hace ' + days + ' días';
   }
   function since(iso) {
+    if (!iso) { return ''; }
     var min = Math.max(0, Math.round((new Date().getTime() - parseIso(iso)) / 60000));
     return min < 60 ? 'hace ' + min + ' min' : 'hace ' + Math.floor(min / 60) + ' h ' + (min % 60) + ' min';
   }
+  function many(n) {
+    if (n >= 1000000) { return (Math.round(n / 100000) / 10).toString().replace('.', ',') + ' M'; }
+    if (n >= 1000) { return (Math.round(n / 100) / 10).toString().replace('.', ',') + ' mil'; }
+    return '' + n;
+  }
   function viewers(n) {
     if (n == null) { return ''; }
-    return n >= 1000 ? (Math.round(n / 100) / 10).toString().replace('.', ',') + ' mil espectadores' : n + ' espectadores';
+    return many(n) + ' espectadores';
   }
   function img(url, fresh) {
     if (!url) { return ''; }
@@ -68,6 +80,12 @@
     return null;
   }
   function inArr(a, v) { for (var i = 0; i < a.length; i++) { if (a[i] === v) { return true; } } return false; }
+  function nameOf(it) { return it.name || it.channel; }
+  function join(parts) {
+    var out = [];
+    for (var i = 0; i < parts.length; i++) { if (parts[i]) { out.push(parts[i]); } }
+    return out.join(' · ');
+  }
 
   // ---------- brillo ----------
   function setBrightness(v, save) {
@@ -78,30 +96,46 @@
     if (save) { xhr('POST', '/api/state', {brightness: brightness}); }
   }
 
-  // ---------- portada ----------
+  // ---------- tarjetas ----------
   function liveCard(it) {
-    return '<div class="card live ' + it.platform + '" data-id="' + esc(it.id) + '" style="' + img(it.thumb, true) + '">' +
+    return '<div class="card live" data-id="' + esc(it.id) + '" style="' + img(it.thumb, true) + '">' +
       '<span class="badge">● EN VIVO</span><div class="shade">' +
-      '<div><span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span></div>' +
-      '<div class="n">' + esc(it.channel) + '</div>' +
+      '<div class="n">' + esc(nameOf(it)) + '</div>' +
       '<div class="t">' + esc(it.title) + '</div>' +
-      '<div class="t">' + viewers(it.viewers) + ' · ' + since(it.started_at) + '</div></div></div>';
+      '<div class="t">' + esc(join([viewers(it.viewers), it.category, since(it.started_at)])) + '</div></div></div>';
   }
   function vodCard(it) {
     var prog = it.resume_s && it.duration_s ? '<div class="prog" style="width:' + Math.min(100, 100 * it.resume_s / it.duration_s) + '%"></div>' : '';
     return '<div class="card vod" data-id="' + esc(it.id) + '">' +
-      '<div class="th ' + it.platform + '" style="' + img(it.thumb) + '"><span class="dur">' + hms(it.duration_s) + '</span>' + prog + '</div>' +
+      '<div class="th" style="' + img(it.thumb) + '"><span class="dur">' + hms(it.duration_s) + '</span>' + prog + '</div>' +
       '<div class="t">' + esc(it.title) + '</div>' +
-      '<div class="m"><span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span>' +
-      esc(it.channel) + ' · ' + relDay(it.started_at) + '</div></div>';
+      '<div class="m">' + esc(join([view ? '' : nameOf(it), relDay(it.started_at)])) + '</div></div>';
   }
-
   function discCard(it) {
     return '<div class="card vod disc" data-id="' + esc(it.id) + '">' +
-      '<div class="th ' + it.platform + '" style="' + img(it.thumb, true) + '"><span class="badge">● EN VIVO</span></div>' +
+      '<div class="th" style="' + img(it.thumb, true) + '"><span class="badge">● EN VIVO</span>' +
+      '<span class="dur">' + esc(many(it.viewers || 0)) + '</span></div>' +
       '<div class="t">' + esc(it.title) + '</div>' +
-      '<div class="m"><span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span>' +
-      esc(it.channel) + ' · ' + viewers(it.viewers) + (it.category ? ' · ' + esc(it.category) : '') + '</div></div>';
+      '<div class="m"><b>' + esc(nameOf(it)) + '</b>' + (it.category ? ' · ' + esc(it.category) : '') + '</div></div>';
+  }
+
+  // ---------- portada y página de canal: mismas filas, distinto contenido ----------
+  function sections() {
+    if (view) {
+      var p = view.data;
+      return [
+        {name: 'live', title: 'En vivo ahora', items: p.live ? [p.live] : [], card: liveCard, per: 2},
+        {name: 'vods', title: 'Streams anteriores', items: p.vods, card: vodCard, per: 4,
+          empty: 'Este canal no tiene streams anteriores guardados.'},
+        {name: 'hl', title: 'Destacados', items: p.highlights, card: vodCard, per: 4},
+        {name: 'none', items: []}];
+    }
+    return [
+      {name: 'live', title: 'En vivo ahora', items: data.live, card: liveCard, per: 2},
+      {name: 'vods', title: 'Streams anteriores', items: data.vods, card: vodCard, per: 4,
+        empty: (data.channels || []).length ? 'No hay streams anteriores.' : 'Todavía no sigues a nadie: busca un canal arriba.'},
+      {name: 'top', title: 'Lo más visto ahora', items: data.top || [], card: discCard, per: 4},
+      {name: 'disc', title: 'También en vivo', items: data.discover || [], card: discCard, per: 4}];
   }
 
   function focusedId() {
@@ -109,23 +143,37 @@
     return r && r.items[focus.col] ? r.items[focus.col].id : null;
   }
 
-  function render(keepId) {
-    var live = data.live, vods = data.vods, disc = data.discover || [], i;
-    var lh = '', vh = '', dh = '';
-    for (i = 0; i < live.length; i++) { lh += liveCard(live[i]); }
-    for (i = 0; i < vods.length; i++) { vh += vodCard(vods[i]); }
-    for (i = 0; i < disc.length; i++) { dh += discCard(disc[i]); }
-    $('liveRow').innerHTML = lh;
-    $('discRow').innerHTML = dh;
-    $('discSec').style.display = disc.length ? '' : 'none';
-    $('vodRow').innerHTML = vh || '<div class="empty">No hay streams anteriores.</div>';
-    $('liveSec').style.display = live.length ? '' : 'none';
-    $('msg').innerHTML = data.errors.length ? 'No se pudo consultar: ' + esc(data.errors.join(' · ')) : '';
+  function drawHead() {
+    $('chHead').style.display = view ? '' : 'none';
+    if (!view) { return; }
+    var c = view.data.channel;
+    $('chAv').setAttribute('style', img(c.avatar));
+    $('chName').innerHTML = esc(c.name);
+    var last = view.data.live ? '' : (c.last_live ? 'último directo ' + relDay(c.last_live) : '');
+    $('chMeta').innerHTML = esc(join([c.followers != null ? many(c.followers) + ' seguidores' : '', c.category, last]));
+    $('chDesc').innerHTML = esc(c.description);
+    $('chFollow').innerHTML = c.following ? '✓ Siguiendo' : '+ Seguir';
+    $('chFollow').className = 'pill' + (c.following ? ' on' : '');
+  }
 
-    rows = [{name: 'chan', el: null, items: [{id: '__canales'}]}, {name: 'top', el: null, items: [{id: '__brillo'}]}];
-    if (live.length) { rows.push({name: 'live', el: $('liveRow'), items: live}); }
-    if (vods.length) { rows.push({name: 'vods', el: $('vodRow'), items: vods}); }
-    if (disc.length) { rows.push({name: 'disc', el: $('discRow'), items: disc}); }
+  function render(keepId) {
+    var secs = sections(), i, j, h, s, el;
+    drawHead();
+    rows = [{name: 'chan', el: null, items: [{id: '__canales'}]}, {name: 'bri', el: null, items: [{id: '__brillo'}]}];
+    if (view) { rows.push({name: 'follow', el: null, items: [{id: '__seguir'}]}); }
+    for (i = 0; i < secs.length; i++) {
+      s = secs[i];
+      el = $('row' + i);
+      h = '';
+      for (j = 0; j < s.items.length; j++) { h += s.card(s.items[j]); }
+      el.innerHTML = h || (s.empty ? '<div class="empty">' + esc(s.empty) + '</div>' : '');
+      el.style.webkitTransform = el.style.transform = '';
+      $('sec' + i).style.display = h || s.empty ? '' : 'none';
+      $('sec' + i).getElementsByTagName('h3')[0].innerHTML = esc(s.title || '');
+      if (s.items.length) { rows.push({name: s.name, el: el, items: s.items, per: s.per}); }
+    }
+    showMsg(view ? [] : data.errors);
+    $('hint').innerHTML = view ? 'OK ver · Atrás volver a la portada' : 'OK ver · verde o G: abrir el canal · ↑ buscar canal';
 
     var placed = false;
     if (keepId) {
@@ -136,10 +184,15 @@
       }
     }
     if (!placed) {
-      // primer arranque: el directo si hay; si no, el anterior más reciente
-      focus = {row: rows.length > 2 ? 2 : 0, col: 0};
+      // primer arranque: la primera fila de tarjetas (el directo si hay); sin tarjetas, el buscador
+      var first = view ? 3 : 2;
+      focus = {row: rows.length > first ? first : 0, col: 0};
     }
     applyFocus();
+  }
+
+  function showMsg(errors) {
+    $('msg').innerHTML = errors && errors.length ? 'No se pudo consultar: ' + esc(errors.join(' · ')) : '';
   }
 
   function applyFocus(noScroll) {
@@ -147,12 +200,15 @@
     for (i = 0; i < all.length; i++) { all[i].className = all[i].className.replace(/\s*\bfocus\b/g, ''); }
     var row = rows[focus.row];
     if (!row) { return; }
-    $('home').className = row.name === 'disc' ? 'scrolled' : '';
-    if (row.name === 'chan') { $('canales').className += ' focus'; return; }
-    if (row.name === 'top') { $('brillo').className += ' focus'; return; }
+    if (row.name === 'chan') { $('canales').className += ' focus'; scrollHome(0); return; }
+    if (row.name === 'bri') { $('brillo').className += ' focus'; scrollHome(0); return; }
+    if (row.name === 'follow') { $('chFollow').className += ' focus'; scrollHome(0); return; }
     var card = row.el.children[focus.col];
     if (!card) { return; }
     card.className += ' focus';
+    // 720 px no dan para todas las filas: la página sube hasta que la fila enfocada queda entera a la vista
+    var sec = row.el.parentNode.parentNode;
+    scrollHome(Math.max(0, sec.offsetTop + sec.offsetHeight - 700));
     if (noScroll) { return; }
     // desplaza la fila para que la tarjeta enfocada quede a la vista
     var off = Math.max(0, card.offsetLeft - row.el.offsetLeft - 40);
@@ -160,6 +216,10 @@
     off = Math.min(off, max);
     row.el.style.webkitTransform = 'translateX(-' + off + 'px)';
     row.el.style.transform = 'translateX(-' + off + 'px)';
+  }
+  function scrollHome(y) {
+    $('home').style.webkitTransform = 'translateY(-' + y + 'px)';
+    $('home').style.transform = 'translateY(-' + y + 'px)';
   }
 
   function loadHome(keepId) {
@@ -172,7 +232,54 @@
       }
       data = d;
       setBrightness(d.brightness, false);
+      if (!player && !view) { render(keepId); }
+      // "Lo más visto" y "También en vivo" se buscan aparte: en el primer arranque llegan unos segundos después
+      if (!discAsked && !(d.top || []).length && !(d.discover || []).length) {
+        discAsked = true;
+        setTimeout(function () { if (!player && !view && !chan) { loadHome(focusedId()); } }, 8000);
+      }
+    });
+  }
+
+  // ---------- página de un canal cualquiera ----------
+  function openChannel(slug) {
+    if (!slug) { return; }
+    $('msg').innerHTML = 'Abriendo ' + esc(slug) + '…';
+    xhr('GET', '/api/channel/' + encodeURIComponent(slug), null, function (err, d) {
+      if (err) { $('msg').innerHTML = 'No se pudo abrir el canal ' + esc(slug) + ' (' + esc(err.message) + ').'; return; }
+      $('msg').innerHTML = '';
+      var fresh = !view;
+      view = {slug: slug, data: d};
+      if (player) { return; }
+      // la página es un paso más en el historial: Atrás vuelve a la portada
+      try { if (fresh) { history.pushState({canal: 1}, ''); } } catch (e) { /* sin historial: Atrás por tecla sigue cerrando */ }
+      render(null);
+    });
+  }
+  function reloadChannel(keepId) {
+    var slug = view.slug;
+    xhr('GET', '/api/channel/' + encodeURIComponent(slug), null, function (err, d) {
+      if (err || !view || view.slug !== slug) { return; }
+      view.data = d;
       if (!player) { render(keepId); }
+    });
+  }
+  function closeChannel() {
+    var dirty = homeDirty;
+    view = null;
+    homeDirty = false;
+    scrollHome(0);
+    if (data) { render(null); }
+    if (dirty || !data) { loadHome(null); }
+  }
+  function toggleFollowView() {
+    var c = view.data.channel, on = !c.following;
+    xhr('POST', '/api/channels', {platform: 'twitch', slug: c.slug, follow: on}, function (err) {
+      if (err) { $('msg').innerHTML = 'No se pudo guardar (' + esc(err.message) + ').'; return; }
+      c.following = on;
+      homeDirty = true;
+      drawHead();
+      applyFocus();
     });
   }
 
@@ -183,7 +290,7 @@
       focus.row++; focus.col = Math.min(focus.col, rows[focus.row].items.length - 1);
     } else if (k === KEY.UP && focus.row > 0) {
       focus.row--; focus.col = Math.min(focus.col, rows[focus.row].items.length - 1);
-    } else if (row.name === 'top' && (k === KEY.LEFT || k === KEY.RIGHT)) {
+    } else if (row.name === 'bri' && (k === KEY.LEFT || k === KEY.RIGHT)) {
       setBrightness(brightness + (k === KEY.RIGHT ? 10 : -10), true);
     } else if (k === KEY.LEFT && focus.col > 0) {
       focus.col--;
@@ -192,8 +299,14 @@
     } else if (k === KEY.ENTER && row.name === 'chan') {
       openChan();
       return;
-    } else if (k === KEY.ENTER && row.name !== 'top') {
+    } else if (k === KEY.ENTER && row.name === 'follow') {
+      toggleFollowView();
+      return;
+    } else if (k === KEY.ENTER && row.name !== 'bri') {
       openPlayer(row.items[focus.col]);
+      return;
+    } else if (inArr(CANAL_KEYS, k) && row.el && !view) {
+      openChannel(row.items[focus.col].channel);
       return;
     }
     applyFocus();
@@ -328,13 +441,20 @@
         if (!err && player && player.item === it) { player.muted = d.ranges; drawBar(); }
       });
     }
-    $('pTitle').innerHTML = esc(it.channel) + ' · ' + esc(it.title);
+    $('pTitle').innerHTML = esc(nameOf(it)) + (it.title ? ' · ' + esc(it.title) : '');
     $('player').style.display = 'block';
     $('home').style.display = 'none';
     start(it.kind === 'vod' ? it.resume_s : 0);
     player.resumeTimer = setInterval(saveResume, 15000);
     showBar();
     try { history.pushState({player: 1}, ''); } catch (e) { /* sin historial: Atrás por tecla sigue cerrando */ }
+  }
+
+  // sale del video a la página de su canal (botón verde, G o "Canal" con el puntero)
+  var pendingChannel = null;
+  function playerToChannel() {
+    pendingChannel = player.item.channel;
+    history.back();
   }
 
   function closePlayer() {
@@ -351,8 +471,12 @@
     player = null;
     $('player').style.display = 'none';
     $('home').style.display = '';
-    // la barra roja de retomar se actualiza al volver
-    setTimeout(function () { loadHome(id); }, 300);
+    // la barra roja de retomar se actualiza al volver; si se pidió el canal del video, se abre su página
+    var go = pendingChannel;
+    pendingChannel = null;
+    setTimeout(function () {
+      if (go && (!view || view.slug !== go)) { openChannel(go); } else if (view) { reloadChannel(id); } else { loadHome(id); }
+    }, 300);
   }
 
   function seekKey(k) {
@@ -398,6 +522,8 @@
     } else if (k === KEY.UP || k === KEY.DOWN) {
       setBrightness(brightness + (k === KEY.UP ? 10 : -10), true);
       showBar();
+    } else if (inArr(CANAL_KEYS, k)) {
+      playerToChannel();
     } else if (inArr(CHAT_KEYS, k)) {
       toggleChat();
     } else {
@@ -405,7 +531,8 @@
     }
   }
 
-  // ---------- canales: buscar en Kick y Twitch, seguir y dejar de seguir ----------
+
+  // ---------- buscar canal: cualquier streamer de Twitch; OK abre su página, → lo sigue o deja de seguir ----------
   var chan = null;  // estado del panel mientras está abierto: {items, idx (-1 = buscador), changed, timer, seq}
   var q = $('q');
 
@@ -422,10 +549,11 @@
       it = chan.items[i];
       h += '<div class="ci' + (i === chan.idx ? ' focus' : '') + '" data-i="' + i + '">' +
         '<div class="av" style="' + img(it.avatar) + '"></div>' +
-        '<span class="nm">' + esc(it.name) + '</span>' +
+        '<span class="nm">' + esc(it.name) +
+        '<span class="sub">' + esc(join([it.followers != null ? many(it.followers) + ' seguidores' : '',
+          it.live ? viewers(it.viewers) : '', it.category])) + '</span></span>' +
         (it.live ? '<span class="lv">● EN VIVO</span>' : '') +
-        '<span class="plat ' + it.platform + '">' + it.platform.toUpperCase() + '</span>' +
-        '<span class="fo' + (it.following ? ' on' : '') + '">' + (it.following ? 'Siguiendo' : 'Seguir') + '</span></div>';
+        '<span class="fo' + (it.following ? ' on' : '') + '" data-f="1">' + (it.following ? '✓ Siguiendo' : '+ Seguir') + '</span></div>';
     }
     $('chanList').innerHTML = h || '<div class="empty">Sin resultados.</div>';
     q.className = chan.idx < 0 ? 'focus' : '';
@@ -435,7 +563,7 @@
   function openChan() {
     chan = {items: chanItems(), idx: -1, changed: false, timer: null, seq: 0};
     q.value = '';
-    $('chanTitle').innerHTML = 'Tus canales';
+    $('chanTitle').innerHTML = chan.items.length ? 'Tus canales' : 'Escribe el nombre de un streamer';
     $('chanMsg').innerHTML = '';
     $('chan').style.display = 'block';
     drawChan();
@@ -448,7 +576,33 @@
     chan = null;
     q.blur();
     $('chan').style.display = 'none';
-    if (changed) { loadHome(focusedId()); }
+    if (changed) {
+      homeDirty = true;
+      if (view) { reloadChannel(focusedId()); } else { homeDirty = false; loadHome(focusedId()); }
+    }
+  }
+  function pickChan(i) {
+    // abre la página del canal en lugar del panel: Atrás desde ella vuelve a la portada
+    var it = chan.items[i];
+    if (!it) { return; }
+    if (chan.changed) { homeDirty = true; }
+    clearTimeout(chan.timer);
+    chan = null;
+    q.blur();
+    $('chan').style.display = 'none';
+    try { history.replaceState({canal: 1}, ''); } catch (e) { /* sin historial */ }
+    view = null;
+    $('msg').innerHTML = 'Abriendo ' + esc(it.name) + '…';
+    xhr('GET', '/api/channel/' + encodeURIComponent(it.slug), null, function (err, d) {
+      if (err) {
+        $('msg').innerHTML = 'No se pudo abrir el canal ' + esc(it.name) + ' (' + esc(err.message) + ').';
+        try { history.back(); } catch (e) { /* sin historial */ }
+        return;
+      }
+      $('msg').innerHTML = '';
+      view = {slug: it.slug, data: d};
+      if (!player) { render(null); }
+    });
   }
   function searchChan() {
     clearTimeout(chan.timer);
@@ -465,7 +619,7 @@
       if (!chan || seq !== chan.seq) { return; }  // llegó tarde: ya se buscó otra cosa
       if (err) { $('chanMsg').innerHTML = 'No se pudo buscar (' + esc(err.message) + ').'; return; }
       chan.items = d.results;
-      $('chanTitle').innerHTML = 'Resultados de “' + esc(text) + '”';
+      $('chanTitle').innerHTML = 'Resultados de “' + esc(text) + '”' + (d.results.length ? '' : ': nada');
       $('chanMsg').innerHTML = d.errors.length ? 'No respondió: ' + esc(d.errors.join(' · ')) : '';
       drawChan();
     });
@@ -492,8 +646,11 @@
         searchChan();
         if (chan.items.length) { chan.idx = 0; q.blur(); }
       } else {
-        toggleFollow(chan.idx);
+        pickChan(chan.idx);
+        return;
       }
+    } else if (k === KEY.RIGHT && chan.idx >= 0) {
+      toggleFollow(chan.idx);
     }
     drawChan();
   }
@@ -503,11 +660,17 @@
     chan.timer = setTimeout(searchChan, 700);
   };
   $('chanList').onclick = function (e) {
-    var el = e.target;
-    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-i'))) { el = el.parentNode; }
-    if (chan && el && el !== this) { chan.idx = +el.getAttribute('data-i'); toggleFollow(chan.idx); }
+    var el = e.target, follow = false;
+    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-i'))) {
+      if (el.getAttribute && el.getAttribute('data-f')) { follow = true; }
+      el = el.parentNode;
+    }
+    if (!chan || !el || el === this) { return; }
+    chan.idx = +el.getAttribute('data-i');
+    if (follow) { toggleFollow(chan.idx); } else { pickChan(chan.idx); }
   };
   $('canales').onclick = function () { if (!player && !chan && data) { openChan(); } };
+  $('chFollow').onclick = function () { if (!player && view) { toggleFollowView(); } };
 
   // ---------- teclado ----------
   document.onkeydown = function (e) {
@@ -516,7 +679,7 @@
     if (chan && k === 8 && document.activeElement === q && q.value !== '') { return; }
     if (inArr(BACK, k)) {
       e.preventDefault();  // que Backspace no haga "atrás" en el navegador
-      if (player || chan) { history.back(); }
+      if (player || chan || view) { history.back(); }
       return;
     }
     if (chan) {
@@ -524,6 +687,7 @@
       if (k === KEY.UP || k === KEY.DOWN || k === KEY.ENTER || (chan.idx >= 0 && (k === KEY.LEFT || k === KEY.RIGHT))) {
         e.preventDefault();
       }
+      // con el teclado de la TV abierto, G es una letra del nombre, no "abrir canal"
       chanKey(k);
       return;
     }
@@ -531,19 +695,18 @@
     if (player) { playerKey(k); } else if (data) { homeKey(k); }
   };
 
-  // ---------- puntero (muchos navegadores de TV mueven una manito en vez de mandar teclas) ----------
-  window.onpopstate = function () { if (player) { closePlayer(); } else if (chan) { closeChan(); } };
+  // Atrás del navegador o del control: cierra lo que esté encima (reproductor, buscador, página de canal)
+  window.onpopstate = function () {
+    if (player) { closePlayer(); } else if (chan) { closeChan(); } else if (view) { closeChannel(); }
+  };
 
+  // ---------- puntero (muchos navegadores de TV mueven una manito en vez de mandar teclas) ----------
   function cardOf(el) {
     while (el && el !== document.body) {
       if (el.getAttribute && el.getAttribute('data-id')) { return el; }
       el = el.parentNode;
     }
     return null;
-  }
-  function rowIndex(name) {
-    for (var i = 0; i < rows.length; i++) { if (rows[i].name === name) { return i; } }
-    return -1;
   }
   function itemById(id) {
     for (var r = 0; r < rows.length; r++) {
@@ -552,6 +715,10 @@
       }
     }
     return null;
+  }
+  function rowOfEl(el) {
+    for (var i = 0; i < rows.length; i++) { if (rows[i].el === el) { return i; } }
+    return -1;
   }
   function bindRow(el) {
     el.onclick = function (e) {
@@ -563,18 +730,16 @@
       if (hit && (hit.row !== focus.row || hit.col !== focus.col)) { focus = {row: hit.row, col: hit.col}; applyFocus(true); }
     };
   }
-  bindRow($('liveRow'));
-  bindRow($('vodRow'));
-  bindRow($('discRow'));
+  for (var ri = 0; ri < 4; ri++) { bindRow($('row' + ri)); }
 
   var navs = document.querySelectorAll('.nav');
   for (var n = 0; n < navs.length; n++) {
     navs[n].onclick = function () {
-      var name = this.getAttribute('data-row'), r = rowIndex(name);
+      var r = rowOfEl($('row' + this.getAttribute('data-row')));
       if (r < 0) { return; }
       var col = focus.row === r ? focus.col : 0;
       var dir = this.className.indexOf('next') >= 0 ? 1 : -1;
-      focus = {row: r, col: TVL.pageCol(col, rows[r].items.length, name === 'live' ? 2 : 4, dir)};
+      focus = {row: r, col: TVL.pageCol(col, rows[r].items.length, rows[r].per || 4, dir)};
       applyFocus();
     };
   }
@@ -589,7 +754,7 @@
       if (!player) { return; }
       var a = this.getAttribute('data-a');
       if (e && e.stopPropagation) { e.stopPropagation(); }
-      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else if (a === 'chat') { toggleChat(); } else if (a === 'b-' || a === 'b+') { setBrightness(brightness + (a === 'b+' ? 10 : -10), true); showBar(); } else { seekBy(+a); showBar(); }
+      if (a === 'back') { history.back(); } else if (a === 'pause') { togglePause(); } else if (a === 'q') { toggleQuality(); } else if (a === 'chat') { toggleChat(); } else if (a === 'canal') { playerToChannel(); } else if (a === 'b-' || a === 'b+') { setBrightness(brightness + (a === 'b+' ? 10 : -10), true); showBar(); } else { seekBy(+a); showBar(); }
     };
   }
 
@@ -600,6 +765,9 @@
   }
   clock();
   setInterval(clock, 30000);
-  setInterval(function () { if (!player && data) { loadHome(focusedId()); } }, REFRESH_MS);
+  setInterval(function () {
+    if (player || chan) { return; }
+    if (view) { reloadChannel(focusedId()); } else if (data) { loadHome(focusedId()); }
+  }, REFRESH_MS);
   loadHome(null);
 })();

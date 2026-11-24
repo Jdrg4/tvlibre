@@ -1,7 +1,7 @@
 # Instalar:  sudo cp deploy/tvlibre@.service /etc/systemd/system/
 #            sudo systemctl enable --now tvlibre@<usuario>
 [Unit]
-Description=tvlibre: Kick y Twitch para Smart TVs viejos
+Description=tvlibre: Twitch para Smart TVs viejos y Roku
 After=network-online.target
 Wants=network-online.target
 

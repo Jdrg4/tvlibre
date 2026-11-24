@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer", "pmenu", "pm0", "pm1", "pm2"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer", "pmenu", "pm0", "pm1", "pm2", "pm3", "chHead", "chAv", "chName", "chMeta", "chFollowBg", "chFollow", "hint"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -12,11 +12,16 @@ sub init()
     m.brightness = 100
     m.tasks = []
     m.keepId = ""
+    m.view = invalid      ' página de un canal abierta: {slug, data}; invalid = portada
+    m.onFollow = false    ' foco en el botón Seguir de la página del canal
+    m.homeDirty = false   ' se siguió o dejó de seguir algo: la portada se recarga al volver
+    m.goChannel = ""      ' canal a abrir al cerrar el reproductor o el panel
 
     m.rows.observeField("rowItemSelected", "onSelect")
     m.video.observeField("state", "onVideoState")
     m.video.observeField("position", "onPosition")
     m.panel.observeField("closed", "onPanelClosed")
+    m.panel.observeField("openSlug", "onPanelOpen")
     m.chatTimer.observeField("fire", "chatTick")
     m.chatOn = m.reg.Read("chat") <> "0"
     m.sleepTimer.observeField("fire", "sleepTick")
@@ -82,7 +87,7 @@ sub onHome(ev as object)
     end if
     m.data = r.data
     if m.data.brightness <> invalid then setBrightness(m.data.brightness, false)
-    if m.item = invalid then render()
+    if m.item = invalid and m.view = invalid then render()
 end sub
 
 sub onRetry()
@@ -90,7 +95,12 @@ sub onRetry()
 end sub
 
 sub onRefresh()
-    if m.item = invalid and m.data <> invalid then loadHome(focusedId())
+    if m.item <> invalid or m.panel.visible then return
+    if m.view <> invalid then
+        loadChannel(m.view.slug, focusedId())
+    else if m.data <> invalid then
+        loadHome(focusedId())
+    end if
 end sub
 
 function itemNode(it as object) as object
@@ -105,12 +115,24 @@ function itemNode(it as object) as object
     return c
 end function
 
+function sections() as object
+    if m.view <> invalid then
+        p = m.view.data
+        lv = []
+        if p.live <> invalid then lv = [p.live]
+        return [{items: lv, name: "En vivo ahora", size: [640, 360], h: 450}, {items: p.vods, name: "Anteriores", size: [400, 340], h: 400}, {items: p.highlights, name: "Destacados", size: [400, 340], h: 400}]
+    end if
+    d = m.data
+    return [{items: d.live, name: "En vivo ahora", size: [640, 360], h: 450}, {items: d.vods, name: "Anteriores", size: [400, 340], h: 400}, {items: d.top, name: "Lo más visto ahora", size: [480, 270], h: 360}, {items: d.discover, name: "También en vivo", size: [480, 270], h: 360}]
+end function
+
 sub render()
     d = m.data
+    drawHead()
     root = CreateObject("roSGNode", "ContentNode")
     sizes = []
     heights = []
-    for each sec in [{items: d.live, name: "En vivo ahora", size: [640, 360], h: 450}, {items: d.vods, name: "Anteriores", size: [400, 340], h: 400}, {items: d.discover, name: "También en vivo", size: [480, 270], h: 360}]
+    for each sec in sections()
         if sec.items <> invalid and sec.items.count() > 0 then
             row = root.createChild("ContentNode")
             row.title = sec.name
@@ -122,7 +144,9 @@ sub render()
         end if
     end for
     m.msg.text = ""
-    if d.errors <> invalid and d.errors.count() > 0 then
+    if m.view <> invalid then
+        if root.getChildCount() = 0 then m.msg.text = "Este canal no tiene nada para ver todavía."
+    else if d.errors <> invalid and d.errors.count() > 0 then
         txt = ""
         for each e in d.errors
             if txt <> "" then txt = txt + " · "
@@ -130,7 +154,7 @@ sub render()
         end for
         m.msg.text = "No se pudo consultar: " + txt
     else if root.getChildCount() = 0 then
-        m.msg.text = "No sigues ningún canal con algo para ver. Pulsa * para buscar y agregar canales."
+        m.msg.text = "No sigues ningún canal con algo para ver. Pulsa * para buscar cualquier streamer."
     end if
     if root.getChildCount() = 0 then
         m.rows.content = root  ' sin esto quedaban las tarjetas viejas y OK pedía un video que ya no existe
@@ -209,7 +233,7 @@ sub openPlayer(it as object)
     m.started = false
     m.target = -1
     m.holdDir = 0
-    m.pTitle.text = cleanText(it.channel + " · " + it.title)
+    m.pTitle.text = cleanText(nameOf(it) + " · " + it.title)
     m.muted = []
     if it.platform = "twitch" and it.kind = "vod" then api("/api/muted/" + it.id, invalid, "onMuted")
     m.home.visible = false
@@ -235,10 +259,10 @@ sub start_(spot as integer)
     c = CreateObject("roSGNode", "ContentNode")
     c.url = m.server + "/play/" + m.item.id + ".m3u8?q=" + quality().ToStr()
     c.streamFormat = "hls"
-    c.title = m.item.channel + " · " + m.item.title
+    c.title = nameOf(m.item) + " · " + m.item.title
     c.live = (m.item.kind = "live")
     c.PlayStart = spot
-    ' el directo de Kick redirige a su CDN por https
+    ' todo va por el servidor (http); el certificado queda por si una redirección sale a https
     c.HttpCertificatesFile = "common:/certs/ca-bundle.crt"
     m.video.content = c
     m.video.control = "play"
@@ -293,16 +317,24 @@ sub closePlayer()
     m.home.visible = true
     m.rows.setFocus(true)
     ' la barra roja de retomar se actualiza cuando el servidor ya guardó la posición
+    m.keepId = id
     if t = invalid then
-        loadHome(id)
+        onSaved()
     else
-        m.keepId = id
         t.observeField("result", "onSaved")
     end if
 end sub
 
 sub onSaved()
-    loadHome(m.keepId)
+    if m.goChannel <> "" then
+        slug = m.goChannel
+        m.goChannel = ""
+        if m.view = invalid or m.view.slug <> slug then
+            openChannel(slug)
+            return
+        end if
+    end if
+    if m.view <> invalid then loadChannel(m.view.slug, m.keepId) else loadHome(m.keepId)
 end sub
 
 sub toggleQuality()
@@ -450,9 +482,9 @@ sub drawMenu()
     sl = "no"
     if m.sleepAt > 0 then sl = Int((sleepLeft() + 59) / 60).ToStr() + " min"
     if m.chatOn then ch = "visible" else ch = "oculto"
-    texts = ["Apagar en:  " + sl, "Calidad:  " + quality().ToStr() + "p", "Chat:  " + ch]
-    rows = [m.pm0, m.pm1, m.pm2]
-    for i = 0 to 2
+    texts = ["Apagar en:  " + sl, "Calidad:  " + quality().ToStr() + "p", "Chat:  " + ch, "Ir al canal de " + cleanText(nameOf(m.item))]
+    rows = [m.pm0, m.pm1, m.pm2, m.pm3]
+    for i = 0 to 3
         if i = m.menuIdx then
             rows[i].text = "<  " + texts[i] + "  >"
             rows[i].color = "0xFFFFFFFF"
@@ -466,15 +498,19 @@ end sub
 function menuKey(key as string) as boolean
     if key = "up" and m.menuIdx > 0 then
         m.menuIdx = m.menuIdx - 1
-    else if key = "down" and m.menuIdx < 2 then
+    else if key = "down" and m.menuIdx < 3 then
         m.menuIdx = m.menuIdx + 1
     else if key = "left" or key = "right" or key = "OK" then
         if m.menuIdx = 0 then
             if key = "left" then setSleep(m.sleepIdx - 1) else setSleep(m.sleepIdx + 1)
         else if m.menuIdx = 1 then
             toggleQuality()
-        else
+        else if m.menuIdx = 2 then
             toggleChat()
+        else if key = "OK" then
+            m.goChannel = m.item.channel
+            closePlayer()
+            return true
         end if
     else if key = "replay" or key = "back" then
         m.pmenu.visible = false
@@ -747,11 +783,122 @@ sub openPanel()
     m.panel.channels = chans
 end sub
 
+sub onPanelOpen()
+    m.goChannel = m.panel.openSlug
+end sub
+
 sub onPanelClosed()
     m.panel.visible = false
     m.rows.setFocus(true)
-    if m.panel.changed then loadHome(focusedId())
+    if m.panel.changed then m.homeDirty = true
+    if m.goChannel <> "" then
+        slug = m.goChannel
+        m.goChannel = ""
+        openChannel(slug)
+    else if m.panel.changed then
+        if m.view <> invalid then
+            loadChannel(m.view.slug, focusedId())
+        else
+            m.homeDirty = false
+            loadHome(focusedId())
+        end if
+    end if
 end sub
+
+' ---------- página de un canal cualquiera ----------
+sub openChannel(slug as string)
+    m.msg.text = "Abriendo " + slug + "…"
+    loadChannel(slug, "")
+end sub
+
+sub loadChannel(slug as string, keepId as string)
+    m.keepId = keepId
+    m.chanReq = slug
+    api("/api/channel/" + slug.EncodeUriComponent(), invalid, "onChannel")
+end sub
+
+sub onChannel(ev as object)
+    r = ev.getData()
+    if r.error <> invalid then
+        m.msg.text = "No se pudo abrir el canal " + m.chanReq + " (" + r.error + ")."
+        return
+    end if
+    if m.view = invalid or m.view.slug <> m.chanReq then m.keepId = ""
+    m.view = {slug: m.chanReq, data: r.data}
+    if m.item = invalid and not m.panel.visible then render()
+end sub
+
+sub closeView()
+    m.view = invalid
+    m.onFollow = false
+    if m.homeDirty or m.data = invalid then
+        m.homeDirty = false
+        loadHome("")
+    else
+        m.keepId = ""
+        render()
+    end if
+    m.rows.setFocus(true)
+end sub
+
+sub drawHead()
+    if m.view = invalid then
+        m.chHead.visible = false
+        m.rows.translation = [80, 160]
+        m.hint.text = "OK ver  ·  Play: abrir el canal  ·  * buscar"
+        return
+    end if
+    c = m.view.data.channel
+    m.chHead.visible = true
+    m.rows.translation = [80, 270]
+    m.hint.text = "OK ver  ·  ↑ seguir  ·  Atrás volver a la portada"
+    if c.avatar <> invalid then m.chAv.uri = m.server + "/img?u=" + c.avatar.EncodeUriComponent()
+    m.chName.text = cleanText(c.name)
+    meta = ""
+    if c.followers <> invalid then meta = many(c.followers) + " seguidores"
+    if c.category <> invalid then meta = meta + "  ·  " + c.category
+    if m.view.data.live = invalid and c.last_live <> invalid then meta = meta + "  ·  último directo " + relDay(c.last_live)
+    m.chMeta.text = cleanText(meta)
+    if c.following then m.chFollow.text = "Siguiendo" else m.chFollow.text = "+ Seguir"
+    if m.onFollow then
+        m.chFollowBg.color = "0xFFFFFFFF"
+        m.chFollow.color = "0x000000FF"
+    else if c.following then
+        m.chFollowBg.color = "0x26262CFF"
+        m.chFollow.color = "0xDDDDDDFF"
+    else
+        m.chFollowBg.color = "0x9146FFFF"
+        m.chFollow.color = "0xFFFFFFFF"
+    end if
+end sub
+
+sub toggleFollowView()
+    c = m.view.data.channel
+    m.followReq = {slug: c.slug, follow: not c.following}
+    api("/api/channels", {platform: "twitch", slug: c.slug, follow: m.followReq.follow}, "onFollowSaved")
+end sub
+
+sub onFollowSaved(ev as object)
+    r = ev.getData()
+    if r.error <> invalid then
+        m.msg.text = "No se pudo guardar (" + r.error + ")."
+        return
+    end if
+    if m.view = invalid or m.view.slug <> m.followReq.slug then return
+    m.view.data.channel.following = m.followReq.follow
+    m.homeDirty = true
+    drawHead()
+end sub
+
+function focusedItem() as dynamic
+    f = m.rows.rowItemFocused
+    if m.rows.content = invalid or f = invalid or f.count() < 2 then return invalid
+    row = m.rows.content.getChild(f[0])
+    if row = invalid then return invalid
+    c = row.getChild(f[1])
+    if c = invalid then return invalid
+    return c.item
+end function
 
 ' ---------- teclado ----------
 function onKeyEvent(key as string, press as boolean) as boolean
@@ -763,7 +910,32 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if m.item <> invalid then return playerKey(key, press)
     if not press then return false
     if key = "options" and m.data <> invalid then
+        m.onFollow = false
         openPanel()
+        return true
+    end if
+    if m.onFollow then
+        if key = "OK" then
+            toggleFollowView()
+        else if key = "up" then
+            m.onFollow = false
+            m.onBri = true
+            drawHead()
+            setBrightness(m.brightness, false)
+        else if key = "down" or key = "back" then
+            m.onFollow = false
+            drawHead()
+            m.rows.setFocus(true)
+        end if
+        return true
+    end if
+    if key = "play" and m.view = invalid and not m.onBri and not m.onSleep then
+        it = focusedItem()
+        if it <> invalid then openChannel(it.channel)
+        return true
+    end if
+    if key = "back" and m.view <> invalid and not m.onBri and not m.onSleep then
+        closeView()
         return true
     end if
     ' portada: Arriba desde la primera fila sube al brillo, como el sol de la TV
@@ -793,6 +965,12 @@ function onKeyEvent(key as string, press as boolean) as boolean
             setBrightness(m.brightness, false)
             drawSleep()
             return true
+        else if key = "down" and m.view <> invalid then
+            m.onBri = false
+            m.onFollow = true
+            setBrightness(m.brightness, false)
+            drawHead()
+            return true
         else if key = "down" or key = "back" then
             m.onBri = false
             setBrightness(m.brightness, false)
@@ -802,9 +980,15 @@ function onKeyEvent(key as string, press as boolean) as boolean
         return true
     end if
     if key = "up" then
-        m.onBri = true
         m.keys.setFocus(true)
-        setBrightness(m.brightness, false)
+        if m.view <> invalid then
+            ' en la página de un canal, arriba de las filas está Seguir
+            m.onFollow = true
+            drawHead()
+        else
+            m.onBri = true
+            setBrightness(m.brightness, false)
+        end if
         return true
     end if
     return false

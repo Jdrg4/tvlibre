@@ -1,5 +1,6 @@
 """Twitch vía su GQL público (API no oficial: puede cambiar sin aviso)."""
 import json
+import re
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -9,41 +10,109 @@ GQL = 'https://gql.twitch.tv/gql'
 CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'  # el del sitio web de Twitch; público
 HEADERS = {'Client-ID': CLIENT_ID}
 PARAMS = '{platform:"web",playerBackend:"mediaplayer",playerType:"site"}'
-CHANNEL_QUERY = ('query($l:String!,$n:Int!){user(login:$l){displayName stream{id title viewersCount createdAt '
-                 'previewImageURL(width:640,height:360)} videos(first:$n,type:ARCHIVE,sort:TIME){edges{node{id title '
-                 'lengthSeconds createdAt previewThumbnailURL(width:640,height:360)}}}}}')
+LOGIN_RE = re.compile(r'^[a-z0-9_]{1,25}$')
+LANG_RE = re.compile(r'^[a-z]{2}$')
+
+LIVE_FIELDS = 'title viewersCount createdAt game{name} previewImageURL(width:640,height:360)'
+VIDEO_FIELDS = 'id title lengthSeconds createdAt previewThumbnailURL(width:640,height:360)'
+CHANNEL_QUERY = ('query($l:String!,$n:Int!){user(login:$l){login displayName stream{%s} '
+                 'videos(first:$n,type:ARCHIVE,sort:TIME){edges{node{%s}}}}}' % (LIVE_FIELDS, VIDEO_FIELDS))
+PAGE_QUERY = ('query($l:String!,$n:Int!,$h:Int!){user(login:$l){login displayName description '
+              'profileImageURL(width:150) followers{totalCount} lastBroadcast{startedAt game{name}} stream{%s} '
+              'videos(first:$n,type:ARCHIVE,sort:TIME){edges{node{%s}}} '
+              'highlights:videos(first:$h,type:HIGHLIGHT,sort:TIME){edges{node{%s}}}}}'
+              % (LIVE_FIELDS, VIDEO_FIELDS, VIDEO_FIELDS))
+VIDEO_QUERY = 'query($v:ID!){video(id:$v){%s owner{login displayName}}}' % VIDEO_FIELDS
 
 
 def _ts(iso):
-    return datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ').timestamp()
+    return datetime.strptime(iso[:19], '%Y-%m-%dT%H:%M:%S').timestamp()
 
 
-def parse_channel(gql, login, vods):
+def _live(s, login, name):
+    return {'id': 'twitch-live-' + login, 'platform': 'twitch', 'kind': 'live', 'channel': login, 'name': name,
+            'title': s.get('title') or '', 'started_at': s.get('createdAt'), 'duration_s': None,
+            'viewers': s.get('viewersCount'), 'thumb': s.get('previewImageURL'), 'ref': login,
+            'category': (s.get('game') or {}).get('name')}
+
+
+def _vod(n, login, name):
+    return {'id': 'twitch-vod-' + n['id'], 'platform': 'twitch', 'kind': 'vod', 'channel': login, 'name': name,
+            'title': n.get('title') or '', 'started_at': n['createdAt'], 'duration_s': n.get('lengthSeconds'),
+            'viewers': None, 'thumb': n.get('previewThumbnailURL'), 'ref': n['id']}
+
+
+def _user(gql, login):
     user = (gql.get('data') or {}).get('user')
     if not user:
         raise ValueError('el canal de Twitch "%s" no existe' % login)
-    s = user.get('stream')
-    live = None
-    if s:
-        live = {'id': 'twitch-live-' + login, 'platform': 'twitch', 'kind': 'live', 'channel': login,
-                'title': s.get('title') or '', 'started_at': s['createdAt'], 'duration_s': None,
-                'viewers': s.get('viewersCount'), 'thumb': s.get('previewImageURL'), 'ref': login}
+    return user, user.get('displayName') or login
+
+
+def _vods(conn, login, name, live):
     out = []
-    for e in user['videos']['edges']:
+    for e in (conn or {}).get('edges') or []:
         n = e['node']
         # el directo en curso aparece como anterior con el mismo inicio que el stream
-        if live and abs(_ts(n['createdAt']) - _ts(live['started_at'])) < 600:
+        if live and live['started_at'] and abs(_ts(n['createdAt']) - _ts(live['started_at'])) < 600:
             continue
-        out.append({'id': 'twitch-vod-' + n['id'], 'platform': 'twitch', 'kind': 'vod', 'channel': login,
-                    'title': n.get('title') or '', 'started_at': n['createdAt'], 'duration_s': n.get('lengthSeconds'),
-                    'viewers': None, 'thumb': n.get('previewThumbnailURL'), 'ref': n['id']})
-    return live, out[:vods]
+        out.append(_vod(n, login, name))
+    return out
+
+
+def parse_channel(gql, login, vods):
+    user, name = _user(gql, login)
+    live = _live(user['stream'], login, name) if user.get('stream') else None
+    return live, _vods(user.get('videos'), login, name, live)[:vods]
 
 
 def channel_state(slug, vods):
     # se piden 2 de más por si se descarta el directo en curso
     gql = net.fetch_json(GQL, {'query': CHANNEL_QUERY, 'variables': {'l': slug, 'n': vods + 2}}, HEADERS)
     return parse_channel(gql, slug, vods)
+
+
+def parse_page(gql, login, vods):
+    """Página de un canal cualquiera: quién es, su directo, sus anteriores y sus destacados."""
+    user, name = _user(gql, login)
+    live = _live(user['stream'], login, name) if user.get('stream') else None
+    last = user.get('lastBroadcast') or {}
+    return {'channel': {'platform': 'twitch', 'slug': login, 'name': name,
+                        'description': (user.get('description') or '').strip(),
+                        'avatar': user.get('profileImageURL'),
+                        'followers': (user.get('followers') or {}).get('totalCount'),
+                        'last_live': last.get('startedAt'), 'category': (last.get('game') or {}).get('name')},
+            'live': live, 'vods': _vods(user.get('videos'), login, name, live)[:vods],
+            'highlights': _vods(user.get('highlights'), login, name, None)}
+
+
+def channel_page(slug, vods):
+    gql = net.fetch_json(GQL, {'query': PAGE_QUERY, 'variables': {'l': slug, 'n': vods + 2, 'h': 20}}, HEADERS)
+    return parse_page(gql, slug, vods)
+
+
+def parse_video(gql, ref):
+    v = (gql.get('data') or {}).get('video')
+    if not v or not v.get('owner'):
+        raise KeyError('video desconocido: %s' % ref)
+    return _vod(v, v['owner']['login'], v['owner'].get('displayName') or v['owner']['login'])
+
+
+def item(item_id):
+    """Rehace un item a partir de su id, aunque el canal no se siga ni haya salido en la portada."""
+    m = re.match(r'^twitch-(live|vod)-([a-z0-9_]+)$', item_id)
+    if not m:
+        raise KeyError(item_id)
+    kind, ref = m.groups()
+    if kind == 'live':
+        if not LOGIN_RE.match(ref):
+            raise KeyError(item_id)
+        # basta con el canal: si no está en vivo, Twitch lo dirá al pedir el acceso
+        return {'id': item_id, 'platform': 'twitch', 'kind': 'live', 'channel': ref, 'name': ref, 'title': '',
+                'started_at': None, 'duration_s': None, 'viewers': None, 'thumb': None, 'ref': ref}
+    if not ref.isdigit():
+        raise KeyError(item_id)
+    return parse_video(net.fetch_json(GQL, {'query': VIDEO_QUERY, 'variables': {'v': ref}}, HEADERS), ref)
 
 
 def _token(field, arg_name, arg_value):
@@ -65,27 +134,49 @@ def master_url(item):
         {'sig': t['signature'], 'token': t['value'], 'allow_source': 'true'}))
 
 
-SEARCH_QUERY = ('query($q:String!){searchFor(userQuery:$q,platform:"web"){channels{edges{item{...on User{login '
-                'displayName profileImageURL(width:150) stream{viewersCount}}}}}}}')
-STREAMS_QUERY = ('query($g:String!,$n:Int!){game(name:$g){name streams(first:$n,options:{languages:["es"]}){edges{node{'
-                 'broadcaster{login displayName} title viewersCount createdAt previewImageURL(width:640,height:360)}}}}}')
+# ---------- buscar y descubrir ----------
+SEARCH_FIELDS = 'login displayName profileImageURL(width:150) followers{totalCount} stream{viewersCount game{name}}'
+# dos búsquedas en una consulta: la general de Twitch y la de nombres que empiezan así (encuentra "alexby11" al
+# escribir "alexby", que la general a veces entierra)
+SEARCH_QUERY = ('query($q:String!){searchFor(userQuery:$q,platform:"web",target:{index:CHANNEL,limit:30}){channels{'
+                'edges{item{...on User{%s}}}}} searchUsers(userQuery:$q,first:30){edges{node{%s}}}}'
+                % (SEARCH_FIELDS, SEARCH_FIELDS))
+EXACT_MIN_FOLLOWERS = 1000  # el nombre exacto va primero solo si es un canal de verdad, no una cuenta vacía
+# el idioma va en el texto de la consulta (ya validado): en game.streams es texto y en streams es un enum
+STREAMS_QUERY = ('query($g:String!,$n:Int!){game(name:$g){name streams(first:$n,options:{languages:["%s"]}){edges{node{'
+                 'broadcaster{login displayName} ' + LIVE_FIELDS + '}}}}}')
+TOP_QUERY = ('query($n:Int!){streams(first:$n,options:{languages:[%s]}){edges{node{broadcaster{login displayName} '
+             + LIVE_FIELDS + '}}}}')
+SEARCH_MAX = 12
 
 
-def parse_search(gql):
-    out = []
-    edges = ((((gql.get('data') or {}).get('searchFor') or {}).get('channels') or {}).get('edges')) or []
-    for e in edges:
-        u = e.get('item') or {}
-        if not u.get('login'):
-            continue  # la búsqueda también devuelve cosas que no son canales
-        s = u.get('stream')
-        out.append({'platform': 'twitch', 'slug': u['login'], 'name': u.get('displayName') or u['login'],
-                    'avatar': u.get('profileImageURL'), 'live': bool(s), 'viewers': s.get('viewersCount') if s else None})
-    return out[:8]
+def _result(u):
+    s = u.get('stream')
+    return {'platform': 'twitch', 'slug': u['login'], 'name': u.get('displayName') or u['login'],
+            'avatar': u.get('profileImageURL'), 'live': bool(s), 'viewers': s.get('viewersCount') if s else None,
+            'followers': (u.get('followers') or {}).get('totalCount'),
+            'category': ((s or {}).get('game') or {}).get('name')}
+
+
+def parse_search(gql, q=''):
+    """Junta las dos búsquedas sin repetir y ordena por seguidores: el streamer conocido arriba aunque esté offline.
+    El que se llama exactamente como lo escrito va primero si tiene público."""
+    data = gql.get('data') or {}
+    users = [e.get('item') for e in ((((data.get('searchFor') or {}).get('channels') or {}).get('edges')) or [])]
+    users += [e.get('node') for e in (((data.get('searchUsers') or {}).get('edges')) or [])]
+    out, seen = [], set()
+    for u in users:
+        if (u or {}).get('login') and u['login'] not in seen:  # la búsqueda también trae cosas que no son canales
+            seen.add(u['login'])
+            out.append(_result(u))
+    want = q.strip().lower().replace(' ', '')
+    out.sort(key=lambda r: (not (r['slug'] == want and (r['followers'] or 0) >= EXACT_MIN_FOLLOWERS),
+                            -(r['followers'] or 0)))
+    return out[:SEARCH_MAX]
 
 
 def search(q):
-    return parse_search(net.fetch_json(GQL, {'query': SEARCH_QUERY, 'variables': {'q': q}}, HEADERS))
+    return parse_search(net.fetch_json(GQL, {'query': SEARCH_QUERY, 'variables': {'q': q}}, HEADERS), q)
 
 
 def parse_streams(gql, exclude):
@@ -93,14 +184,36 @@ def parse_streams(gql, exclude):
     out = []
     for e in ((game.get('streams') or {}).get('edges')) or []:
         n = e['node']
-        login = (n.get('broadcaster') or {}).get('login')
-        if not login or login in exclude:
+        b = n.get('broadcaster') or {}
+        if not b.get('login') or b['login'] in exclude:
             continue
-        out.append({'id': 'twitch-live-' + login, 'platform': 'twitch', 'kind': 'live', 'channel': login,
-                    'title': n.get('title') or '', 'started_at': n.get('createdAt'), 'duration_s': None,
-                    'viewers': n.get('viewersCount'), 'thumb': n.get('previewImageURL'), 'ref': login,
-                    'category': game.get('name')})
+        it = _live(n, b['login'], b.get('displayName') or b['login'])
+        it['category'] = it['category'] or game.get('name')
+        out.append(it)
     return out
+
+
+def parse_top(gql, exclude):
+    out = []
+    for e in (((gql.get('data') or {}).get('streams') or {}).get('edges')) or []:
+        n = e['node']
+        b = n.get('broadcaster') or {}
+        if b.get('login') and b['login'] not in exclude:
+            out.append(_live(n, b['login'], b.get('displayName') or b['login']))
+    return out
+
+
+def _lang(lang):
+    if not LANG_RE.match(lang or ''):
+        raise ValueError('idioma inválido: %r' % lang)
+    return lang
+
+
+def top(lang, exclude, n):
+    """Lo más visto ahora en ese idioma, de todo Twitch."""
+    gql = net.fetch_json(GQL, {'query': TOP_QUERY % _lang(lang).upper(), 'variables': {'n': n + len(exclude)}},
+                         HEADERS)
+    return parse_top(gql, exclude)[:n]
 
 
 def _games(slugs):
@@ -117,11 +230,12 @@ def _games(slugs):
     return games
 
 
-def discover(slugs, exclude, n):
-    """Directos en español de los juegos de tus canales."""
+def discover(slugs, exclude, n, lang='es'):
+    """Directos en tu idioma de los juegos de tus canales."""
+    query = STREAMS_QUERY % _lang(lang)
     out, seen = [], set()
     for g in _games(slugs) if slugs else []:
-        gql = net.fetch_json(GQL, {'query': STREAMS_QUERY, 'variables': {'g': g, 'n': n}}, HEADERS)
+        gql = net.fetch_json(GQL, {'query': query, 'variables': {'g': g, 'n': n}}, HEADERS)
         for it in parse_streams(gql, exclude):
             if it['id'] not in seen:
                 seen.add(it['id'])

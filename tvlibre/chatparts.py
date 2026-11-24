@@ -1,6 +1,6 @@
 """Un mensaje de chat como partes {'t': texto} o {'e': url de imagen}.
 
-Ni el Roku ni el navegador de la TV traen fuente de emojis, y los emotes de Kick y Twitch son imágenes:
+Ni el Roku ni el navegador de la TV traen fuente de emojis, y los emotes de Twitch son imágenes:
 todo lo que no es texto se dibuja como imagen (los emojis con Twemoji, el set abierto de Twitter)."""
 
 TWEMOJI = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/'

@@ -1,8 +1,8 @@
-"""Partes de un mensaje de chat: texto, emotes de Kick/Twitch y emojis (como imágenes)."""
+"""Partes de un mensaje de chat: texto, emotes de Twitch y emojis (como imágenes)."""
 import unittest
 
 from tvlibre import chatparts
-from tvlibre.providers import kick, twitch, twitch_irc
+from tvlibre.providers import twitch, twitch_irc
 
 TW = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/'
 
@@ -24,15 +24,6 @@ class EmojiTest(unittest.TestCase):
 
 
 class EmotesTest(unittest.TestCase):
-    def test_kick(self):
-        js = {'data': {'messages': [{'id': 'k1', 'type': 'message', 'created_at': '2026-10-20T04:18:46Z',
-                                     'content': 'jaja [emote:4148144:catblobDance]🔥',
-                                     'sender': {'username': 'u', 'identity': {}}}]}}
-        m = kick.parse_messages(js)[0]
-        self.assertEqual(m['parts'], [{'t': 'jaja '}, {'e': 'https://files.kick.com/emotes/4148144/fullsize'},
-                                      {'e': TW + '1f525.png'}])
-        self.assertEqual(m['text'], 'jaja :catblobDance:🔥')
-
     def test_twitch_irc(self):
         line = ('@display-name=Uno;emotes=25:5-9;id=m1 :uno!uno@uno.tmi.twitch.tv PRIVMSG #canal :hola Kappa ñ')
         self.assertEqual(twitch_irc.parse_line(line)['parts'],

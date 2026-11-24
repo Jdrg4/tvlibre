@@ -1,7 +1,7 @@
 # tvlibre: guía para colaboradores (y agentes)
 
-App web para el navegador integrado de Smart TVs viejos que muestra directos y streams anteriores de
-Kick y Twitch. Un servidor Python en la red local hace el trabajo pesado y la TV solo pinta la
+App web para el navegador integrado de Smart TVs viejos (y canal de Roku) que muestra directos y streams
+anteriores de cualquier canal de Twitch. Kick se quitó en 2026-11: solo Twitch. Un servidor Python en la red local hace el trabajo pesado y la TV solo pinta la
 interfaz y reproduce HLS.
 
 ## Comandos
@@ -17,21 +17,21 @@ En la TV: `/` es la app y `/diagnostico` muestra capacidades, teclas y pruebas d
 
 | Módulo | Responsabilidad |
 |---|---|
-| `tvlibre/config.py` | Carga el JSON de configuración (canales, puerto, estado) |
-| `tvlibre/providers/{twitch,kick}.py` | Consultan las APIs no oficiales: `channel_state(slug, n)`, `master_url(item)`, `search(q)` y `discover(slugs, exclude, n)`, con sus `parse_*` puros |
-| `tvlibre/catalog.py` | Portada (directos, anteriores y "También en vivo", caché de 60 s y 5 min), búsqueda y seguir/dejar de seguir |
+| `tvlibre/config.py` | Carga el JSON de configuración (canales, puerto, estado, `language`); las entradas `kick` se ignoran con aviso |
+| `tvlibre/providers/twitch.py` | GQL no oficial: `channel_state`, `channel_page` (página de cualquier canal), `item(id)` (rehace un item por su id), `master_url`, `search`, `top` (lo más visto por idioma) y `discover`, con sus `parse_*` puros |
+| `tvlibre/catalog.py` | Portada (directos, anteriores, "Lo más visto" y "También en vivo", caché de 60 s y 5 min), página de canal (60 s), búsqueda, seguir/dejar de seguir; `item()` cae a `provider.item()` si el id no salió en pantalla |
 | `tvlibre/hls.py` | Elige variante y reescribe playlists (URLs absolutas, etiquetas filtradas, `#EXT-X-MAP`) |
 | `tvlibre/providers/twitch_irc.py` | Chat en vivo de Twitch por IRC anónimo: un hilo por canal, se cierra a los 120 s sin pedidos |
 | `tvlibre/proxy.py` | Sesiones de playlist con renovación de token, segmentos, LRU |
 | `tvlibre/remux.py` | Convierte fMP4 a MPEG-TS con `ffmpeg -c copy` (máximo 3 a la vez) |
 | `tvlibre/state.py` | Brillo, canales seguidos y puntos de retomar en un JSON, con escritura atómica |
-| `tvlibre/server.py` | HTTP (`ThreadingHTTPServer`), rutas y filtro de solo red local |
+| `tvlibre/server.py` | HTTP (`ThreadingHTTPServer`), rutas (`/api/home`, `/api/channel/<login>`, `/api/search`, `/play/<id>.m3u8`…) y filtro de solo red local |
 | `tvlibre/web/` | Front en ES5: `index.html`, `app.js`, `app.css` y `diagnostico.html` |
 | `roku/` | Canal de Roku (BrightScript + SceneGraph) sobre la misma API; `roku/build.py <url>` arma el zip |
 
 Un item (directo o anterior) es un dict con `id` (`<plataforma>-<live|vod>-<ref>`, con caracteres
 `[a-z0-9_-]`), `platform`, `kind`, `channel`, `title`, `started_at` (ISO UTC), `duration_s`,
-`viewers`, `thumb` y `ref`.
+`viewers`, `thumb` y `ref`; además `name` (displayName de Twitch) y, en directos, `category`.
 
 ## Lo medido en una TV real (Chrome 39, 1280x720)
 
@@ -45,13 +45,8 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
 - **Decide el tipo por la extensión.** Los enlaces del proxy terminan en `.m3u8` o `.ts`.
 - **Se entrega la playlist de una variante, nunca la maestra.** Con la maestra, la TV elegía
   1080p60 de perfil High y fallaba.
-- **Twitch directo falla (error 3), por el proxy funciona.** Los anteriores de Twitch vienen en fMP4,
-  que la TV no decodifica, por eso se convierten.
-- **Kick en vivo funciona directo**, y se deja así para no cargar el servidor.
-- **Adelantar en los anteriores de Kick solo funciona por el proxy.** Directo, el salto se va al
-  final.
-- La miniatura del directo de Kick en `stream.kick.com/thumbnails/livestream` responde 403. Se usa la
-  del video en curso.
+- **Twitch directo falla (error 3), por el proxy funciona.** Todo va por el proxy. Los anteriores vienen en
+  fMP4, que la TV no decodifica, por eso se convierten.
 
 ## Lo medido en un Roku real (Express 4K+, Roku OS 15.3)
 
@@ -67,13 +62,16 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
 - La IP del servidor no va en el repo: `build.py` la escribe en el `manifest` del zip.
 - El foco del reproductor y del brillo va al nodo `keys`: con `m.top.setFocus` la fila oculta se quedaba con el
   foco y OK abría otra tarjeta en pleno video.
+- **El icono del canal sale de `mm_icon_focus_fhd` (540x405)** porque el canal es `ui_resolutions=fhd`. Sin esa clave,
+  en Roku OS 15 el canal quedó sin icono. Además el Roku guarda el icono según la versión: `build.py` pone un
+  `build_version` nuevo en cada build. `tests/test_roku.py` vigila los tamaños.
 - Los anteriores de Twitch traen tramos silenciados por derechos (segmentos `-muted`, audio a -91 dB): no es un
   fallo de la conversión; `/api/muted/<id>` los da y la barra los avisa.
 
 ## Reglas
 
 - Servidor: **solo biblioteca estándar** más el binario `ffmpeg`. Nada de `pip install`.
-- Las APIs de Kick y Twitch no son oficiales: todo acceso a ellas vive en `providers/`.
+- La API de Twitch no es oficial: todo acceso a ella vive en `providers/`.
 - Solo red local: `server.is_allowed` rechaza las IP que no son privadas. No se debilita.
 - Las fixtures de `tests/fixtures/` son respuestas reales **anonimizadas**: sin nombres de canales,
   IDs ni títulos reales.

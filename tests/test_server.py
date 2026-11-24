@@ -15,7 +15,7 @@ from tvlibre.state import State
 MASTER = ('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1920x1080,FRAME-RATE=30.000\n1080/i.m3u8\n'
           '#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1280x720,FRAME-RATE=30.000\n720/i.m3u8\n').encode()
 ITEMS = {
-    'kick-live-ejemplo_kick': {'id': 'kick-live-ejemplo_kick', 'platform': 'kick', 'kind': 'live'},
+    'twitch-live-ejemplo_twitch': {'id': 'twitch-live-ejemplo_twitch', 'platform': 'twitch', 'kind': 'live'},
     'twitch-vod-1001': {'id': 'twitch-vod-1001', 'platform': 'twitch', 'kind': 'vod', 'duration_s': 3600},
 }
 
@@ -30,14 +30,15 @@ class FakeCatalog:
     followed = []
 
     def search(self, q):
-        return {'results': [{'platform': 'kick', 'slug': 'x', 'q': q}], 'errors': []}
+        return {'results': [{'platform': 'twitch', 'slug': 'x', 'q': q}], 'errors': []}
+
+    def channel(self, slug):
+        if slug == 'nadie':
+            raise ValueError('el canal de Twitch "nadie" no existe')
+        return {'channel': {'slug': slug}, 'live': None, 'vods': [], 'highlights': []}
 
     def follow(self, platform, slug, on):
         self.followed.append((platform, slug, on))
-
-    @staticmethod
-    def route(item):
-        return 'direct' if item['platform'] == 'kick' and item['kind'] == 'live' else 'proxy'
 
 
 class FakeProvider:
@@ -61,14 +62,13 @@ class ServerTest(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
         cls.state = State(os.path.join(cls.tmp, 'state.json'))
-        pages = {'https://kick.cdn/m.m3u8': MASTER, 'https://tw.cdn/m.m3u8': MASTER,
-                 'https://images.kick.com/x/720.webp': b'RIFF',
+        pages = {'https://tw.cdn/m.m3u8': MASTER,
+                 'https://static-cdn.jtvnw.net/x/720.webp': b'RIFF',
                  'https://tw.cdn/1080/i.m3u8': b'#EXTM3U\n#EXTINF:10.0,\n0.mp4\n#EXTINF:10.0,\n1-muted.mp4\n'}
         fetch = lambda url, *a, **k: pages[url]
-        cfg = Config(port=0, state_path=os.path.join(cls.tmp, 'state.json'), channels=[Channel('kick', 'ejemplo_kick')])
+        cfg = Config(port=0, state_path=os.path.join(cls.tmp, 'state.json'), channels=[Channel('twitch', 'ejemplo_twitch')])
         cls.srv = build(cfg, catalog=FakeCatalog(), state=cls.state, proxy=Proxy(fetch=fetch), fetch=fetch,
-                        providers={'kick': FakeProvider('https://kick.cdn/m.m3u8'),
-                                   'twitch': FakeProvider('https://tw.cdn/m.m3u8')})
+                        providers={'twitch': FakeProvider('https://tw.cdn/m.m3u8')})
         cls.base = 'http://127.0.0.1:%d' % cls.srv.server_address[1]
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
@@ -97,14 +97,14 @@ class ServerTest(unittest.TestCase):
             self.assertTrue(is_allowed(ip), ip)
 
     def test_img_cacheable(self):
-        code, h, _ = self.get('/img?u=' + urllib.parse.quote('https://images.kick.com/x/720.webp', safe=''))
+        code, h, _ = self.get('/img?u=' + urllib.parse.quote('https://static-cdn.jtvnw.net/x/720.webp', safe=''))
         self.assertEqual(code, 200)
         self.assertEqual(h.get_all('Cache-Control'), ['max-age=3600'])
 
     def test_img_tipo_por_contenido(self):
-        # los emotes de Kick van en una URL sin extensión (.../fullsize) y son GIF
+        # los emotes animados son GIF aunque la URL no tenga extensión
         from tvlibre.server import _img_type
-        self.assertEqual(_img_type(b'GIF89a...', 'https://files.kick.com/emotes/1/fullsize'), 'image/gif')
+        self.assertEqual(_img_type(b'GIF89a...', 'https://static-cdn.jtvnw.net/emoticons/v2/1/default/dark/1.0'), 'image/gif')
         self.assertEqual(_img_type(b'RIFF....WEBPVP8', 'x'), 'image/webp')
         self.assertEqual(_img_type(b'\x89PNG\r\n', 'x'), 'image/png')
         self.assertEqual(_img_type(b'????', 'https://a.jtvnw.net/x.png'), 'image/png')
@@ -151,9 +151,9 @@ class ServerTest(unittest.TestCase):
         os.remove(path)
 
     def test_play_redirect_absoluto(self):
-        code, h, _ = self.get('/play/kick-live-ejemplo_kick.m3u8?q=720')
+        code, h, _ = self.get('/play/twitch-live-ejemplo_twitch.m3u8?q=720')
         self.assertEqual(code, 302)
-        self.assertEqual(h['Location'], 'https://kick.cdn/720/i.m3u8')
+        self.assertTrue(h['Location'].startswith(self.base + '/h/'), h['Location'])  # todo por el proxy
         code, h, _ = self.get('/play/twitch-vod-1001.m3u8?q=1080')
         self.assertEqual(code, 302)
         self.assertTrue(h['Location'].startswith(self.base + '/h/'), h['Location'])
@@ -166,7 +166,7 @@ class ServerTest(unittest.TestCase):
     def test_tramos_silenciados(self):
         code, _, body = self.get('/api/muted/twitch-vod-1001')
         self.assertEqual((code, json.loads(body)), (200, {'ranges': [[10, 20]]}))
-        self.assertEqual(json.loads(self.get('/api/muted/kick-live-ejemplo_kick')[2]), {'ranges': []})
+        self.assertEqual(json.loads(self.get('/api/muted/twitch-live-ejemplo_twitch')[2]), {'ranges': []})
         self.assertEqual(self.get('/api/muted/twitch-vod-9999')[0], 404)
 
     def test_search_ok(self):
@@ -185,10 +185,11 @@ class ServerTest(unittest.TestCase):
 
     def test_channels_invalido_400(self):
         for bad in ({'platform': 'youtube', 'slug': 'a', 'follow': True},
-                    {'platform': 'kick', 'slug': '../x', 'follow': True},
-                    {'platform': 'kick', 'slug': 'a' * 41, 'follow': True},
-                    {'platform': 'kick', 'slug': 'a', 'follow': 'si'},
-                    {'platform': 'kick', 'slug': 7, 'follow': True}):
+                    {'platform': 'kick', 'slug': 'a', 'follow': True},
+                    {'platform': 'twitch', 'slug': '../x', 'follow': True},
+                    {'platform': 'twitch', 'slug': 'a' * 26, 'follow': True},
+                    {'platform': 'twitch', 'slug': 'a', 'follow': 'si'},
+                    {'platform': 'twitch', 'slug': 7, 'follow': True}):
             with self.assertRaises(urllib.error.HTTPError) as cm:
                 self.post('/api/channels', bad)
             self.assertEqual(cm.exception.code, 400, bad)
@@ -196,7 +197,7 @@ class ServerTest(unittest.TestCase):
     def test_chat(self):
         code, _, body = self.get('/api/chat/twitch-vod-1001?t=90.7')
         self.assertEqual((code, json.loads(body)), (200, {'messages': [{'t': 90}], 'until': 120}))
-        self.assertEqual(json.loads(self.get('/api/chat/kick-live-ejemplo_kick?t=x')[2])['messages'], [{'t': 0}])
+        self.assertEqual(json.loads(self.get('/api/chat/twitch-live-ejemplo_twitch?t=x')[2])['messages'], [{'t': 0}])
         self.assertEqual(self.get('/api/chat/twitch-vod-9999')[0], 404)
 
     def test_h_desconocida_404(self):
@@ -204,15 +205,22 @@ class ServerTest(unittest.TestCase):
 
     def test_img_host_no_permitido(self):
         self.assertEqual(self.get('/img?u=https://evil.com/x.jpg')[0], 400)
-        self.assertEqual(self.get('/img?u=https://images.kick.com.evil.com/x.jpg')[0], 400)
+        self.assertEqual(self.get('/img?u=https://static-cdn.jtvnw.net.evil.com/x.jpg')[0], 400)
         # de jsDelivr solo Twemoji: sirve cualquier repositorio de GitHub
         self.assertEqual(self.get('/img?u=https://cdn.jsdelivr.net/gh/otro/repo/x.png')[0], 400)
 
     def test_img_twemoji(self):
         from tvlibre.server import _img_allowed
         self.assertTrue(_img_allowed('https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/1f602.png'))
-        self.assertTrue(_img_allowed('https://files.kick.com/emotes/4148144/fullsize'))
+        self.assertFalse(_img_allowed('https://files.kick.com/emotes/4148144/fullsize'))  # Kick ya no
         self.assertFalse(_img_allowed('https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/../../evil/x.png'))
+
+    def test_pagina_de_canal(self):
+        code, _, body = self.get('/api/channel/IlloJuan')
+        self.assertEqual((code, json.loads(body)['channel']['slug']), (200, 'illojuan'))
+        self.assertEqual(self.get('/api/channel/nadie')[0], 404)
+        self.assertEqual(self.get('/api/channel/..%2Fx')[0], 404)
+        self.assertEqual(self.get('/api/channel/' + 'a' * 26)[0], 404)
 
     def test_home_json(self):
         code, _, body = self.get('/api/home')
