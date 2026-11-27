@@ -218,7 +218,7 @@ def make_handler(app):
                 master = provider.master_url(item)
                 return hls.pick_variant(fetch(master).decode(), master, q)
             # todo por el proxy: Twitch directo a la TV falla (error 3) y los anteriores hay que convertirlos
-            return self.redirect('/h/%s.m3u8' % app['proxy'].open(resolve))
+            return self.redirect('/h/%s.m3u8' % app['proxy'].open(resolve, live=item['kind'] == 'live'))
 
         def do_POST(self):
             if not self.guard():
@@ -269,6 +269,23 @@ def build(config, catalog=None, state=None, proxy=None, providers=None, fetch=ne
     return server
 
 
+def use_twitch_account(path):
+    """Si hay token, los directos y anteriores se piden con tu cuenta. Cualquier problema deja un aviso y se
+    sigue sin cuenta: nunca impide arrancar."""
+    path = os.path.expanduser(path)
+    try:
+        with open(path, encoding='utf-8') as f:
+            login = twitch.use_account(f.read())
+    except OSError as e:
+        print('aviso: no se pudo leer %s (%s); se sigue sin cuenta de Twitch' % (path, e.strerror), file=sys.stderr)
+    except ValueError as e:
+        print('aviso: %s; se sigue sin cuenta de Twitch' % e, file=sys.stderr)
+    except Exception as e:  # Twitch caído al arrancar
+        print('aviso: no se pudo comprobar la cuenta de Twitch (%s); se sigue sin ella' % str(e)[:120], file=sys.stderr)
+    else:
+        print('cuenta de Twitch: %s' % login, flush=True)
+
+
 def main(argv=None):
     import argparse
     from tvlibre.config import load_config
@@ -280,6 +297,8 @@ def main(argv=None):
     config = load_config(args.config)
     if not remux.available():
         print('aviso: no se encontró ffmpeg; los anteriores de Twitch no se podrán reproducir', file=sys.stderr)
+    if config.twitch_token_file:
+        use_twitch_account(config.twitch_token_file)
     server = build(config, verbose=args.verbose)
     print('tvlibre escuchando en el puerto %d (solo red local)' % config.port, flush=True)
     try:

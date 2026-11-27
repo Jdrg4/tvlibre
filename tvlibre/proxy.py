@@ -14,6 +14,7 @@ class Proxy:
     def __init__(self, fetch=net.fetch, to_ts=remux.to_ts, max_entries=20000):
         self.fetch, self.to_ts, self.max_entries = fetch, to_ts, max_entries
         self._lock = threading.Lock()
+        self._live_lock = threading.Lock()  # aparte: rewrite_live llama a _put, que toma _lock
         self._entries = OrderedDict()   # clave -> {'url', 'init', 'playlist', 'resolver'}
         self._inits = OrderedDict()     # url del init -> bytes (64 como máximo)
 
@@ -30,10 +31,12 @@ class Proxy:
             self._entries.move_to_end(key)
             return entry
 
-    def open(self, resolver):
+    def open(self, resolver, live=False):
         url = resolver()
         key = _key(url)
-        self._put(key, {'url': url, 'init': None, 'playlist': True, 'resolver': resolver})
+        # en directo se quitan los anuncios intercalados; la numeración propia vive en 'live' entre recargas
+        self._put(key, {'url': url, 'init': None, 'playlist': True, 'resolver': resolver,
+                        'live': {} if live else None})
         return key
 
     def _link(self, host):
@@ -66,8 +69,12 @@ class Proxy:
                     raise
                 e['url'] = e['resolver']()
                 text = self.fetch(e['url'])
-            return hls.rewrite_playlist(text.decode(), e['url'], self._link(host)).encode(), \
-                'application/vnd.apple.mpegurl'
+            if e.get('live') is not None:
+                with self._live_lock:  # dos recargas a la vez no pueden pisarse la numeración
+                    out = hls.rewrite_live(text.decode(), e['url'], self._link(host), e['live'])
+            else:
+                out = hls.rewrite_playlist(text.decode(), e['url'], self._link(host))
+            return out.encode(), 'application/vnd.apple.mpegurl'
         data = self.fetch(e['url'])
         if e['init']:
             data = self.to_ts(self._init(e['init']), data)

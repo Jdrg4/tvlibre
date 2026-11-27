@@ -20,7 +20,7 @@ En la TV: `/` es la app y `/diagnostico` muestra capacidades, teclas y pruebas d
 | `tvlibre/config.py` | Carga el JSON de configuración (canales, puerto, estado, `language`); las entradas `kick` se ignoran con aviso |
 | `tvlibre/providers/twitch.py` | GQL no oficial: `channel_state`, `channel_page` (página de cualquier canal), `item(id)` (rehace un item por su id), `master_url`, `search`, `top` (lo más visto por idioma) y `discover`, con sus `parse_*` puros |
 | `tvlibre/catalog.py` | Portada (directos, anteriores, "Lo más visto" y "También en vivo", caché de 60 s y 5 min), página de canal (60 s), búsqueda, seguir/dejar de seguir; `item()` cae a `provider.item()` si el id no salió en pantalla |
-| `tvlibre/hls.py` | Elige variante y reescribe playlists (URLs absolutas, etiquetas filtradas, `#EXT-X-MAP`) |
+| `tvlibre/hls.py` | Elige variante y reescribe playlists (URLs absolutas, etiquetas filtradas, `#EXT-X-MAP`); en directo, `rewrite_live` quita los anuncios intercalados y renumera |
 | `tvlibre/providers/twitch_irc.py` | Chat en vivo de Twitch por IRC anónimo: un hilo por canal, se cierra a los 120 s sin pedidos |
 | `tvlibre/proxy.py` | Sesiones de playlist con renovación de token, segmentos, LRU |
 | `tvlibre/remux.py` | Convierte fMP4 a MPEG-TS con `ffmpeg -c copy` (máximo 3 a la vez) |
@@ -45,6 +45,9 @@ Estas reglas salen de pruebas en hardware, no de suposiciones. No las cambies si
 - **Decide el tipo por la extensión.** Los enlaces del proxy terminan en `.m3u8` o `.ts`.
 - **Se entrega la playlist de una variante, nunca la maestra.** Con la maestra, la TV elegía
   1080p60 de perfil High y fallaba.
+- **Los anuncios a mitad del directo congelaban el video** (a los ~12 min, medido): Twitch los intercala con otro
+  init y un `#EXT-X-DISCONTINUITY`. El proxy los quita (`hls.rewrite_live`) y la TV y el Roku tienen un vigilante
+  que vuelve a pedir el video si pasa 12 s quieto. Con `twitch_token_file` y sub al canal, Twitch ni los manda.
 - **Twitch directo falla (error 3), por el proxy funciona.** Todo va por el proxy. Los anteriores vienen en
   fMP4, que la TV no decodifica, por eso se convierten.
 

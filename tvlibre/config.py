@@ -22,6 +22,7 @@ class Config:
     vods_per_channel: int = 20
     default_quality: int = 1080
     language: str = 'es'  # idioma de "Lo más visto" y "También en vivo"
+    twitch_token_file: str = None  # archivo con el auth-token de tu cuenta (opcional: sin anuncios si eres sub)
 
 
 def load_config(path):
@@ -48,4 +49,5 @@ def load_config(path):
         vods_per_channel=int(raw.get('vods_per_channel', 20)),
         default_quality=int(raw.get('default_quality', 1080)),
         language=language,
+        twitch_token_file=raw.get('twitch_token_file') or None,
     )

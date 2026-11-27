@@ -39,6 +39,17 @@ class ProxyTest(unittest.TestCase):
             self.assertTrue(s.startswith('http://tv.local:8099/h/'), s)
             self.assertTrue(s.endswith('.ts'), s)
 
+    def test_directo_sin_anuncios_y_segmentos_servibles(self):
+        p = Proxy(fetch=FakeNet({VOD: fixture('live_ads.m3u8'), 'https://cdn.example.net/x/seg101.ts': b'TS'}))
+        key = p.open(lambda: VOD, live=True)
+        for _ in range(2):  # la segunda recarga reusa la numeración
+            body, _ = p.serve(key, 'tv.local:8099')
+            segs = [l for l in body.decode().splitlines() if l and not l.startswith('#')]
+            self.assertEqual(len(segs), 2)
+            self.assertIn('#EXT-X-MEDIA-SEQUENCE:0', body.decode())
+        data, ctype = p.serve(segs[1].rsplit('/', 1)[1][:16], 'tv.local:8099')
+        self.assertEqual((data, ctype), (b'TS', 'video/mp2t'))
+
     def test_segmento_fmp4_pasa_por_to_ts(self):
         net = FakeNet({VOD: fixture('vod_fmp4.m3u8'), 'https://cdn.example.net/x/init-0.mp4': b'INIT',
                        'https://cdn.example.net/x/0.mp4': b'S0', 'https://cdn.example.net/x/1.mp4': b'S1'})

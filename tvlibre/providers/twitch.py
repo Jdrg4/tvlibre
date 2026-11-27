@@ -1,6 +1,7 @@
 """Twitch vía su GQL público (API no oficial: puede cambiar sin aviso)."""
 import json
 import re
+import sys
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -115,10 +116,43 @@ def item(item_id):
     return parse_video(net.fetch_json(GQL, {'query': VIDEO_QUERY, 'variables': {'v': ref}}, HEADERS), ref)
 
 
+# Sesión opcional del dueño (cookie "auth-token" de twitch.tv). Solo va en el pedido de acceso al video: con ella
+# Twitch aplica sus beneficios (Turbo, o suscripción al canal = sin anuncios). Nunca se registra ni se manda a otro lado.
+_auth = {'token': None, 'login': None}
+
+
+def use_account(token):
+    """Activa la cuenta y devuelve su login. ValueError si Twitch no reconoce el token."""
+    token = (token or '').strip()
+    if token.lower().startswith('oauth '):
+        token = token[6:].strip()
+    if not re.match(r'^[a-z0-9]{20,40}$', token):
+        raise ValueError('el token de Twitch no tiene el formato esperado (30 letras y números)')
+    try:
+        gql = net.fetch_json(GQL, {'query': '{currentUser{login}}'}, dict(HEADERS, Authorization='OAuth ' + token))
+    except net.HttpError as e:
+        raise ValueError('Twitch rechazó el token (HTTP %s): quizá se cerró esa sesión' % e.status) from None
+    user = (gql.get('data') or {}).get('currentUser')
+    if not user:
+        raise ValueError('Twitch no reconoció el token')
+    _auth.update(token=token, login=user['login'])
+    return user['login']
+
+
 def _token(field, arg_name, arg_value):
     q = 'query($v:%s){%s(%s:$v,params:%s){value signature}}' % (
         'ID!' if arg_name == 'id' else 'String!', field, arg_name, PARAMS)
-    return net.fetch_json(GQL, {'query': q, 'variables': {'v': arg_value}}, HEADERS)['data'][field]
+    body = {'query': q, 'variables': {'v': arg_value}}
+    if _auth['token']:
+        try:
+            return net.fetch_json(GQL, body, dict(HEADERS, Authorization='OAuth ' + _auth['token']))['data'][field]
+        except net.HttpError as e:
+            if e.status != 401:
+                raise
+            # la sesión se cerró (cambio de contraseña, "cerrar todas las sesiones"): se sigue sin cuenta
+            print('aviso: Twitch ya no acepta el token de %s; se sigue sin cuenta' % _auth['login'], file=sys.stderr)
+            _auth.update(token=None, login=None)
+    return net.fetch_json(GQL, body, HEADERS)['data'][field]
 
 
 def master_url(item):

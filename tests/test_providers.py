@@ -172,5 +172,57 @@ class CualquierCanalTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn('searchUsers', calls[0]['query'])
 
+class CuentaTest(unittest.TestCase):
+    TOKEN = 'a' * 30  # inventado
+
+    def setUp(self):
+        self.orig = twitch.net.fetch_json
+        self.headers = []
+        twitch._auth.update(token=None, login=None)
+
+    def tearDown(self):
+        twitch.net.fetch_json = self.orig
+        twitch._auth.update(token=None, login=None)
+
+    def fake(self, reject=False):
+        def fetch(url, data=None, headers=None, *a, **k):
+            self.headers.append(dict(headers or {}))
+            if 'Authorization' in (headers or {}) and reject:
+                raise twitch.net.HttpError(401, url)
+            if 'currentUser' in data['query']:
+                return {'data': {'currentUser': {'login': 'yo'}}}
+            return {'data': {'streamPlaybackAccessToken': {'value': '{}', 'signature': 's'}}}
+        twitch.net.fetch_json = fetch
+
+    def test_el_token_va_en_el_pedido_de_acceso(self):
+        self.fake()
+        self.assertEqual(twitch.use_account('OAuth ' + self.TOKEN + '\n'), 'yo')
+        twitch.master_url({'id': 'twitch-live-x', 'kind': 'live', 'ref': 'x'})
+        self.assertEqual(self.headers[-1]['Authorization'], 'OAuth ' + self.TOKEN)
+
+    def test_sin_cuenta_no_manda_token(self):
+        self.fake()
+        twitch.master_url({'id': 'twitch-live-x', 'kind': 'live', 'ref': 'x'})
+        self.assertNotIn('Authorization', self.headers[-1])
+
+    def test_token_invalido(self):
+        self.fake(reject=True)
+        for bad in ('', 'corto', 'con espacios dentro de el token 123'):
+            with self.assertRaises(ValueError, msg=bad):
+                twitch.use_account(bad)
+        with self.assertRaises(ValueError):
+            twitch.use_account(self.TOKEN)
+        self.assertIsNone(twitch._auth['token'])
+
+    def test_si_caduca_sigue_sin_cuenta(self):
+        self.fake()
+        twitch.use_account(self.TOKEN)
+        self.fake(reject=True)
+        url = twitch.master_url({'id': 'twitch-live-x', 'kind': 'live', 'ref': 'x'})
+        self.assertIn('usher.ttvnw.net', url)
+        self.assertNotIn('Authorization', self.headers[-1])
+        self.assertIsNone(twitch._auth['token'])
+
+
 if __name__ == '__main__':
     unittest.main()

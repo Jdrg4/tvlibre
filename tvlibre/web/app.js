@@ -348,6 +348,31 @@
       duration_s: player.item.duration_s || Math.floor(v.duration || 0)});
   }
 
+  // vigilante: si el video lleva STUCK_S segundos sin avanzar (y nadie lo pausó) se vuelve a pedir. Twitch mete
+  // anuncios a mitad del directo con un corte de formato que el reproductor de la TV a veces no sabe pasar.
+  var STUCK_S = 12, RETRY_MAX = 5;
+  function restartPlayer() {
+    if (!player) { return; }
+    start(player.item.kind === 'vod' ? Math.floor(player.lastT || 0) : 0);
+  }
+  function watchdog() {
+    if (!player) { return; }
+    if (!player.started || v.paused || player.target != null) { player.stuck = 0; return; }
+    if (v.currentTime !== player.lastT) {
+      player.lastT = v.currentTime;
+      player.stuck = 0;
+      player.good += 2;
+      if (player.good >= 60) { player.retries = 0; }  // un minuto bien: vuelve a tener todos los reintentos
+      return;
+    }
+    player.stuck += 2;
+    if (player.stuck >= STUCK_S && player.retries < RETRY_MAX) {
+      player.retries++;
+      player.stuck = player.good = 0;
+      restartPlayer();
+    }
+  }
+
   function start(seekTo) {
     $('loading').style.display = 'block';
     $('perr').style.display = 'none';
@@ -361,6 +386,14 @@
     };
     v.onwaiting = function () { $('loading').style.display = 'block'; };
     v.onerror = function () {
+      // un tropiezo (corte de red, servidor reiniciado, cambio a anuncio) se arregla volviendo a pedir el video
+      if (player.retries < RETRY_MAX) {
+        var p = player;
+        p.retries++;
+        p.stuck = 0;
+        setTimeout(function () { if (player === p) { restartPlayer(); } }, 3000);
+        return;
+      }
       $('loading').style.display = 'none';
       $('perr').innerHTML = 'No se pudo reproducir (código ' + (v.error ? v.error.code : '?') + '). Atrás para volver.';
       $('perr').style.display = 'block';
@@ -431,7 +464,8 @@
 
   function openPlayer(it) {
     player = {item: it, target: null, seekTimer: null, barTimer: null, lastKey: 0, lastCode: 0, repeat: 0, started: false,
-      muted: [], chat: TVL.chatReset(), chatN: 0, chatBusy: false};
+      muted: [], chat: TVL.chatReset(), chatN: 0, chatBusy: false, lastT: -1, stuck: 0, good: 0, retries: 0};
+    player.watchTimer = setInterval(watchdog, 2000);
     $('chat').style.display = chatOn ? 'block' : 'none';
     $('player').className = chatOn ? 'conchat' : '';
     $('chatList').innerHTML = '';
@@ -461,6 +495,7 @@
     saveResume();
     clearInterval(player.resumeTimer);
     clearInterval(player.chatTimer);
+    clearInterval(player.watchTimer);
     clearTimeout(player.seekTimer);
     clearTimeout(player.barTimer);
     var id = player.item.id;

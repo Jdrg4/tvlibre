@@ -9,3 +9,5 @@ CLAUDE.local.md
 docs/superpowers/
 .superpowers/
 roku/dist/
+
+twitch_token*.txt

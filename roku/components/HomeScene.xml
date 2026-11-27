@@ -81,5 +81,6 @@
     <Timer id="holdTimer" duration="0.15" repeat="true"/>
     <Timer id="chatTimer" duration="1" repeat="true"/>
     <Timer id="sleepTimer" duration="1" repeat="true"/>
+    <Timer id="watchTimer" duration="2" repeat="true"/>
   </children>
 </component>

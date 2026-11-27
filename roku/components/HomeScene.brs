@@ -3,7 +3,7 @@
 sub init()
     m.server = CreateObject("roAppInfo").GetValue("tvlibre_server")
     m.reg = CreateObject("roRegistrySection", "tvlibre")
-    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer", "pmenu", "pm0", "pm1", "pm2", "pm3", "chHead", "chAv", "chName", "chMeta", "chFollowBg", "chFollow", "hint"]
+    for each id in ["home", "bri", "clock", "msg", "rows", "video", "perr", "toast", "dim", "refresh", "retry", "clockTimer", "resumeTimer", "toastTimer", "bar", "pTitle", "pTime", "pFill", "loading", "barTimer", "seekTimer", "holdTimer", "keys", "panel", "chat", "chatLines", "chatTimer", "sleep", "sleepWarn", "sleepWarnText", "sleepTimer", "pmenu", "pm0", "pm1", "pm2", "pm3", "chHead", "chAv", "chName", "chMeta", "chFollowBg", "chFollow", "hint", "watchTimer"]
         m[id] = m.top.findNode(id)
     end for
     m.data = invalid
@@ -23,6 +23,7 @@ sub init()
     m.panel.observeField("closed", "onPanelClosed")
     m.panel.observeField("openSlug", "onPanelOpen")
     m.chatTimer.observeField("fire", "chatTick")
+    m.watchTimer.observeField("fire", "watchdog")
     m.chatOn = m.reg.Read("chat") <> "0"
     m.sleepTimer.observeField("fire", "sleepTick")
     m.sleepOptions = [0, 5, 15, 30, 45, 60, 90, 120]
@@ -240,7 +241,12 @@ sub openPlayer(it as object)
     m.video.visible = true
     ' las teclas las maneja la escena: el avance nativo del Roku es muy lento en videos de horas
     m.keys.setFocus(true)
+    m.lastPos = -1
+    m.stuck = 0
+    m.good = 0
+    m.retries = 0
     start_(resumeOf(it))
+    m.watchTimer.control = "start"
     m.resumeTimer.control = "start"
     chatReset()
     m.chat.visible = m.chatOn
@@ -278,12 +284,47 @@ sub onVideoState(ev as object)
         showBar()
     else if s = "paused" then
         showBar()
+    else if (s = "error" or (s = "finished" and m.item.kind = "live")) and m.retries < 5 then
+        ' un tropiezo (red, servidor reiniciado, cambio a anuncio) o un directo que "terminó" sin terminar: otra vez
+        m.retries = m.retries + 1
+        restartVideo()
     else if s = "error" then
         m.perr.text = "No se pudo reproducir (código " + m.video.errorCode.ToStr() + ": " + m.video.errorMsg + ")." + Chr(10) + "Atrás para volver."
         m.perr.visible = true
     else if s = "finished" then
         closePlayer()
     end if
+end sub
+
+' Vigilante: si el video lleva 12 s sin avanzar (y nadie lo pausó) se vuelve a pedir. Twitch mete anuncios a mitad
+' del directo con un corte de formato en el que el reproductor a veces se queda quieto. Mismo criterio que app.js.
+sub watchdog()
+    if m.item = invalid then return
+    if not m.started or m.video.state = "paused" or m.target >= 0 then
+        m.stuck = 0
+        return
+    end if
+    if m.video.position <> m.lastPos then
+        m.lastPos = m.video.position
+        m.stuck = 0
+        m.good = m.good + 2
+        if m.good >= 60 then m.retries = 0   ' un minuto bien: vuelve a tener todos los reintentos
+        return
+    end if
+    m.stuck = m.stuck + 2
+    if m.stuck >= 12 and m.retries < 5 then
+        m.retries = m.retries + 1
+        restartVideo()
+    end if
+end sub
+
+sub restartVideo()
+    m.stuck = 0
+    m.good = 0
+    spot = 0
+    if m.item.kind = "vod" and m.lastPos > 0 then spot = Int(m.lastPos)
+    m.video.control = "stop"
+    start_(spot)
 end sub
 
 ' Devuelve la tarea del POST (o invalid si no hay nada que guardar).
@@ -297,6 +338,7 @@ end function
 
 sub closePlayer()
     m.resumeTimer.control = "stop"
+    m.watchTimer.control = "stop"
     id = m.item.id
     t = saveResume()
     m.item = invalid

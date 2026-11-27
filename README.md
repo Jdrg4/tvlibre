@@ -100,6 +100,13 @@ Just trying it out? Copy `config.example.json` to `config.local.json`, put real 
 - `language` (two letters: `es`, `en`, `pt`…) picks the language of "Top live now" and "Also live".
 - Kick support was removed: `kick` entries in an old config are skipped with a warning, they don't stop the
   server.
+- `twitch_token_file` (optional) points to a file holding the `auth-token` cookie of your twitch.tv session.
+  Streams are then requested as you, so your Turbo or channel subs (Prime included) mean no ads. Keep that file
+  private (`chmod 600`): it works like your logged-in session. It is only sent to Twitch's playback-access
+  request and never logged; if Twitch stops accepting it, the server warns and carries on without an account.
+- Mid-stream ads that Twitch stitches into a live stream are removed by the server: the TV and Roku players froze
+  on the format switch they bring (about 10 to 15 minutes in). Both players also re-request the video by
+  themselves if it stays still for 12 s or errors out.
 - `state_path` is where brightness, resume points and the channels you follow from the screen are stored, shared
   by the TV and the Roku. `channels` is only the starting list: once you follow or unfollow someone from the
   screen, the list in `state_path` wins.

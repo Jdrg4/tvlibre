@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 
 from tvlibre import hls
@@ -61,7 +62,67 @@ class RewriteTest(unittest.TestCase):
         hls.rewrite_playlist(fixture('live_ads.m3u8'), BASE, self.link)
         self.assertTrue(all(init is None for _, init in self.calls))
 
+def live_pl(seq, segs):
+    """Playlist de directo: segs es una lista de nombres; los que empiezan por "ad" son anuncios."""
+    out = ['#EXTM3U', '#EXT-X-VERSION:6', '#EXT-X-TARGETDURATION:5', '#EXT-X-MEDIA-SEQUENCE:%d' % seq]
+    prev_ad = None
+    for s in segs:
+        ad = s.startswith('ad')
+        if prev_ad is not None and ad != prev_ad:
+            out.append('#EXT-X-DISCONTINUITY')
+        if ad != prev_ad:
+            out.append('#EXT-X-MAP:URI="%s"' % ('ad-init.mp4' if ad else 'init.mp4'))
+        out += ['#EXTINF:2.000,%s' % ('Amazon|123' if ad else 'live'), s + '.mp4']
+        prev_ad = ad
+    return '\n'.join(out) + '\n'
 
+
+class RewriteLiveTest(unittest.TestCase):
+    def link(self, url, init):
+        return 'L:%s|%s' % (url.rsplit('/', 1)[1], init.rsplit('/', 1)[1] if init else '')
+
+    def segs(self, out):
+        return [l.split('|')[0][2:].replace('.mp4', '') for l in out.splitlines() if l.startswith('L:')]
+
+    def seq(self, out):
+        return int(re.search(r'MEDIA-SEQUENCE:(\d+)', out).group(1))
+
+    def test_anuncio_a_mitad_se_quita_y_la_secuencia_sigue(self):
+        st = {}
+        a = hls.rewrite_live(live_pl(500, ['s1', 's2', 's3']), BASE, self.link, st)
+        self.assertEqual((self.seq(a), self.segs(a)), (0, ['s1', 's2', 's3']))
+        self.assertNotIn('DISCONTINUITY', a)
+        b = hls.rewrite_live(live_pl(502, ['s3', 'ad1', 'ad2']), BASE, self.link, st)
+        self.assertEqual((self.seq(b), self.segs(b)), (2, ['s3']))
+        c = hls.rewrite_live(live_pl(503, ['ad1', 'ad2', 's4', 's5']), BASE, self.link, st)
+        self.assertEqual((self.seq(c), self.segs(c)), (3, ['s4', 's5']))
+        # corte solo donde hubo hueco, y el segmento lleva su propio init
+        self.assertIn('#EXT-X-DISCONTINUITY\n#EXTINF:2.000,live\nL:s4.mp4|init.mp4', c)
+        self.assertNotIn('Amazon', b + c)
+        self.assertNotIn('ad-init', b + c)
+
+    def test_el_corte_que_sale_de_la_ventana_se_cuenta(self):
+        st = {}
+        hls.rewrite_live(live_pl(1, ['s1', 'ad1']), BASE, self.link, st)
+        hls.rewrite_live(live_pl(2, ['ad1', 's2', 's3']), BASE, self.link, st)
+        d = hls.rewrite_live(live_pl(4, ['s3', 's4']), BASE, self.link, st)
+        self.assertEqual((self.seq(d), self.segs(d)), (2, ['s3', 's4']))
+        self.assertNotIn('#EXT-X-DISCONTINUITY\n', d)
+        self.assertIn('#EXT-X-DISCONTINUITY-SEQUENCE:1', d)
+
+    def test_anuncio_inicial_sin_corte(self):
+        st = {}
+        a = hls.rewrite_live(live_pl(0, ['ad1', 'ad2']), BASE, self.link, st)
+        self.assertEqual((self.seq(a), self.segs(a)), (0, []))
+        b = hls.rewrite_live(live_pl(1, ['ad2', 's1', 's2']), BASE, self.link, st)
+        self.assertEqual((self.seq(b), self.segs(b)), (0, ['s1', 's2']))
+        self.assertNotIn('DISCONTINUITY', b)
+
+    def test_sin_anuncios_queda_igual_que_antes(self):
+        out = hls.rewrite_live(fixture('live_ads.m3u8'), BASE, self.link, {})
+        self.assertEqual(self.segs(out), ['seg100.ts', 'seg101.ts'])
+        self.assertIn('#EXT-X-DISCONTINUITY', out)
+        self.assertNotIn('DATERANGE', out)
 
 
 class MutedRangesTest(unittest.TestCase):

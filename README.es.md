@@ -99,6 +99,13 @@ sudo systemctl enable --now "tvlibre@$USER"
 - `slug` es el nombre del canal en su URL (`twitch.tv/<slug>`). La lista puede ir vacía.
 - `language` (dos letras: `es`, `en`, `pt`…) elige el idioma de "Lo más visto ahora" y "También en vivo".
 - Kick se quitó: las entradas `kick` de una configuración vieja se ignoran con un aviso, no impiden arrancar.
+- `twitch_token_file` (opcional) apunta a un archivo con la cookie `auth-token` de tu sesión de twitch.tv. Así
+  los directos se piden con tu cuenta y, si tienes Turbo o sub al canal (Prime incluido), sin anuncios. Ese archivo
+  es como tu sesión abierta: déjalo privado (`chmod 600`). Solo va en el pedido de acceso al video y nunca se
+  registra; si Twitch deja de aceptarlo, el servidor avisa y sigue sin cuenta.
+- Los anuncios que Twitch intercala a mitad del directo los quita el servidor: con el cambio de formato que traen,
+  el reproductor de la TV y del Roku se quedaba congelado (a los 10-15 minutos). Además, los dos reproductores
+  vuelven a pedir el video solos si pasa 12 s sin avanzar o da error.
 - `state_path` es donde se guardan el brillo, los puntos de retomar y los canales que sigas desde la pantalla,
   compartidos entre la TV y el Roku. `channels` es solo la lista inicial: una vez que sigues o dejas de seguir
   a alguien desde la pantalla, manda la de `state_path`.
